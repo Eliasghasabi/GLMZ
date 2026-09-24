@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import { bus, type HudData, hud as initialHud, type BannerData, type KillConfirmData } from "../store";
 import { WEAPONS, WEAPON_ORDER } from "../game/weapons";
-import { Heart, Shield, Skull, Radar, Trophy, Flame, Zap, Star } from "lucide-react";
+import { Heart, Shield, Skull, Radar, Trophy, Flame, Star } from "lucide-react";
 import { isTouchDevice } from "./TouchControls";
 import {
   getCrosshair, onCrosshairChange, CROSSHAIR_COLOR_HEX, type CrosshairConfig,
