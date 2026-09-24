@@ -1,0 +1,20 @@
+name = "shadowstrike-leaderboard"
+main = "src/worker.ts"
+compatibility_date = "2024-09-23"
+
+# D1 holds the score history. Create it with:
+#   npx wrangler d1 create shadowstrike-scores
+# then paste the returned database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "shadowstrike-scores"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[vars]
+# Lock this down to your game's origin in production, e.g.
+#   ALLOWED_ORIGINS = "https://yourgame.example.com"
+ALLOWED_ORIGINS = "*"
+
+# Optional: set a private salt so the submission signature differs
+# from the public default. Prefer a secret:
+#   npx wrangler secret put SIGNING_SALT
