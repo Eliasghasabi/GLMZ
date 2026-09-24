@@ -1,27 +1,10 @@
 @import "tailwindcss";
 
-/* ── Persian font (Vazirmatn) — loaded only when language = fa ── */
-@font-face {
-  font-family: "Vazirmatn";
-  src: url("/fonts/Vazirmatn-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Vazirmatn";
-  src: url("/fonts/Vazirmatn-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Vazirmatn";
-  src: url("/fonts/Vazirmatn-Black.woff2") format("woff2");
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-}
+/* ── Persian font (Vazirmatn) ──
+   The actual @font-face rules are injected at runtime by
+   src/game/fonts.ts as base64 data-URIs. This guarantees the
+   font loads inside the Android WebView, where absolute URL
+   resolution (/fonts/...) for separate files has been flaky. */
 
 :root {
   --accent: #e8b545;
@@ -43,7 +26,13 @@ body,
   -webkit-tap-highlight-color: transparent;
   font-family: "Chakra Petch", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   user-select: none;
+  -webkit-user-select: none;
+  /* Android WebView sometimes scales text on rotation — lock it */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
 }
 
 canvas {
@@ -520,6 +509,47 @@ canvas { touch-action: none; }
     padding-left: max(0px, env(safe-area-inset-left));
     padding-right: max(0px, env(safe-area-inset-right));
     padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ── small-screen / mobile density tuning ──
+   On phones the menu's button labels and the HUD's ammo counter
+   can crowd each other because everything was sized for desktop.
+   These overrides shrink spacing on small landscape viewports
+   without changing the desktop layout at all. */
+@media (max-width: 760px) and (orientation: landscape) {
+  /* main menu: tighten the title and stack buttons a touch tighter */
+  .font-display.title-glitch {
+    font-size: clamp(2.5rem, 9vw, 4rem);
+    line-height: 1.05;
+  }
+  /* tactical buttons: slightly smaller on phones so all six fit
+     without scrolling, while keeping tap targets ≥44px tall */
+  .btn-tac.clip-btn.group {
+    width: min(220px, 80vw);
+    padding: 0.55rem 1rem;
+    font-size: 0.8rem;
+  }
+  /* settings panel: less padding so all rows fit on one screen */
+  .clip-panel {
+    padding: 1.25rem !important;
+  }
+  /* HUD ammo counter: scale down so it never collides with weapon slots */
+  .font-mono2 {
+    letter-spacing: -0.01em;
+  }
+  /* crosshair panel: collapse to single column on very narrow phones */
+  .grid-cols-4 {
+    gap: 0.4rem;
+  }
+}
+
+/* very small phones (≤480px landscape) — extra squeeze */
+@media (max-width: 480px) and (orientation: landscape) {
+  .btn-tac.clip-btn.group {
+    width: min(190px, 80vw);
+    font-size: 0.72rem;
+    padding: 0.45rem 0.85rem;
   }
 }
 

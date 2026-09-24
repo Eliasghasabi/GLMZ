@@ -1,8 +1,18 @@
 // ─────────────────────────────────────────────────────────────
 //  Settings — persisted to LocalStorage
+//
+//  Quality tiers:
+//    • "low"     — web fallback, no shadows, no post-processing
+//    • "medium"  — basic shadows + bloom
+//    • "high"    — soft PCF shadows + bloom + AO + filmic tone-map
+//    • "studio"  — APK-only: max shadow res, full post-processing,
+//                  subtle chromatic aberration & film grain, higher DPR
+//
+//  On first launch, the runtime GPU tier detection in gpuTier.ts
+//  picks a sensible default per device.
 // ─────────────────────────────────────────────────────────────
 
-export type Quality = "low" | "medium" | "high";
+export type Quality = "low" | "medium" | "high" | "studio";
 export type Difficulty = "easy" | "normal" | "hard";
 
 /** enemy tuning per difficulty tier */
@@ -42,6 +52,10 @@ export interface Settings {
   sfxVolume: number; // 0 – 1
   quality: Quality;
   difficulty: Difficulty;
+  /** cinematic post-processing: bloom + AO + filmic — auto on high/studio, off on low */
+  postProcessing: boolean;
+  /** subtle chromatic aberration + film grain — opt-in, default off */
+  cinematicGrain: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -51,17 +65,19 @@ const DEFAULTS: Settings = {
   sfxVolume: 0.9,
   quality: "high",
   difficulty: "normal",
+  postProcessing: true,
+  cinematicGrain: false,
 };
 
-const SETTINGS_KEY = "shadowstrike.settings.v1";
+const SETTINGS_KEY = "shadowstrike.settings.v2";
 const BEST_KEY = "shadowstrike.best.v1";
 
 /** touch devices default to lower graphics + slightly higher look sensitivity.
- *  Inside the native Android APK we push even harder: phones commonly
- *  report a devicePixelRatio of 2.5–3, which multiplied by the high-quality
- *  cap (1.75) would ask the GPU to render ~5x the visible pixels. That
- *  tanks framerate. We force low quality on native and let the renderer
- *  cap the pixel ratio further. */
+ *  Inside the native Android APK we pick the quality tier at runtime
+ *  using GPU tier detection (see gpuTier.ts) — but never above 'studio'
+ *  because that's the APK-only max. The web build caps at 'high'.
+ *  For first-time fallback before benchmarking, native defaults to
+ *  'high' (Studio only kicks in once we've confirmed the GPU is fast). */
 function deviceDefaults(): Settings {
   const d = { ...DEFAULTS };
   try {
@@ -72,12 +88,14 @@ function deviceDefaults(): Settings {
       d.sensitivity = 1.35;
       d.fov = 80;
     }
-    // Capacitor Android shell — guaranteed native, always treated as touch
     const native = typeof window !== "undefined" &&
       (window as any).Capacitor?.isNativePlatform?.();
     if (native) {
-      d.quality = "low";
-      // touch sticks need a touch more look gain to feel responsive
+      // Studio is too expensive to assume by default — start at high
+      // and let the runtime benchmark promote or demote on first launch.
+      // The benchmark runs in gpuTier.ts and may overwrite this once.
+      d.quality = "high";
+      d.postProcessing = true;
       if (!coarse) d.sensitivity = 1.4;
       d.fov = 80;
     }
@@ -91,7 +109,18 @@ export function loadSettings(): Settings {
   const base = deviceDefaults();
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...base, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Migrate v1 settings if the user has them — drop the old "low"
+      // cap on native so the new studio tier can take effect after the
+      // first benchmark.
+      const v1Key = "shadowstrike.settings.v1";
+      if (!localStorage.getItem(SETTINGS_KEY) && localStorage.getItem(v1Key)) {
+        const v1 = JSON.parse(localStorage.getItem(v1Key) || "{}");
+        return { ...base, ...v1, postProcessing: true, cinematicGrain: false };
+      }
+      return { ...base, ...parsed };
+    }
   } catch {
     /* corrupted storage — fall through to defaults */
   }

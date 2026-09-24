@@ -16,6 +16,9 @@ import {
 import { applyCharacter, applyWrist, currentHandStyle } from "./customize/character";
 import { EnemyManager, type Enemy, type EnemyContext, type EnemyKind } from "./enemies";
 import { Effects } from "./effects";
+import { PostFX, FpsMonitor } from "./postfx";
+import { detectGpu, getCachedGpu } from "./gpuTier";
+import { isNativeApp } from "./platform";
 import { audio } from "./audio";
 import { loadSettings, saveBest, type Settings } from "./settings";
 import { bus, pushHud } from "../store";
@@ -95,13 +98,45 @@ export class Game {
   private bannerTimer = 0;
   private boundHandlers: { [k: string]: (e: any) => void } = {};
 
+  // post-processing + adaptive quality
+  private postfx: PostFX | null = null;
+  private fpsMonitor: FpsMonitor | null = null;
+  /** the GPU profile we benchmarked on first launch */
+  private gpuProfile = getCachedGpu();
+
   constructor(container: HTMLElement) {
     this.container = container;
     this.settings = loadSettings();
 
+    // ── GPU tier detection on first launch ──
+    // Runs a quick micro-benchmark, then if the player hasn't
+    // manually picked a quality tier before, we adopt the
+    // recommendation. We don't override existing user choice.
+    try {
+      if (!localStorage.getItem("shadowstrike.gpu.v1")) {
+        const profile = detectGpu(true);
+        this.gpuProfile = profile;
+        // Only adopt recommendation if the player hasn't manually picked quality
+        const settingsRaw = localStorage.getItem("shadowstrike.settings.v2") || localStorage.getItem("shadowstrike.settings.v1");
+        if (!settingsRaw) {
+          this.settings.quality = profile.recommended;
+          // Persist the benchmarked default so it isn't re-applied on next boot
+          try { localStorage.setItem("shadowstrike.settings.v2", JSON.stringify(this.settings)); } catch { /* */ }
+        }
+      } else if (this.gpuProfile) {
+        // Already cached — make sure we have the profile loaded
+      } else {
+        this.gpuProfile = detectGpu(false);
+      }
+    } catch { /* GPU detection failed — fall through with existing settings */ }
+
     this.renderer = new THREE.WebGLRenderer({
       antialias: this.settings.quality !== "low",
       powerPreference: "high-performance",
+      // studio uses the post-processing pipeline's antialiasing,
+      // so we can disable MSAA there to save fill-rate.
+      stencil: false,
+      depth: true,
     });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.shadowMap.enabled = true;
@@ -120,6 +155,22 @@ export class Game {
     this.arms = new ViewArms(this.player.camera);
     this.enemies = new EnemyManager(this.scene);
     this.effects = new Effects(this.scene);
+
+    // ── post-processing pipeline ──
+    // Built lazily so applySettings() can rebuild it on quality change.
+    this.postfx = new PostFX(this.renderer, this.scene, this.player.camera);
+    this.postfx.setQuality(this.settings.quality, this.settings.postProcessing, this.settings.cinematicGrain);
+    this.fpsMonitor = new FpsMonitor(this.settings.quality, {
+      target: 45,
+      sustainedMs: 4000,
+      onStepDown: (_from, to) => {
+        // Persist the new (lower) quality so the next boot doesn't re-trigger the stall
+        this.settings.quality = to;
+        try { localStorage.setItem("shadowstrike.settings.v2", JSON.stringify(this.settings)); } catch { /* */ }
+        // Notify the HUD so we can show a "quality reduced for performance" toast
+        bus.emit("quality-auto-step", to);
+      },
+    });
 
     // soft fill light so the first-person weapon is always readable
     const fill = new THREE.PointLight(0xd6e2f5, 0.55, 2.4, 2);
@@ -210,6 +261,7 @@ export class Game {
       this.renderer.setSize(w, h);
       this.player.camera.aspect = w / h;
       this.player.camera.updateProjectionMatrix();
+      this.postfx?.resize();
     };
     const onClick = () => {
       // click canvas to re-acquire lock mid-game (e.g. after alt-tab)
@@ -423,29 +475,60 @@ export class Game {
     // Inside the native Android shell, cull the pixel ratio hard.
     // Modern phones report 2.5–3.0; rendering at full DPR is what makes
     // the WebView version feel sluggish compared to a desktop browser.
-    const native = typeof window !== "undefined" &&
-      (window as any).Capacitor?.isNativePlatform?.();
+    const native = isNativeApp();
 
+    // ── pixel ratio per quality tier ──
+    // studio and high get more pixels than the leaner tiers, but the
+    // native caps keep mobile GPUs honest.
+    let prCap: number;
+    let prMul: number;
+    if (q === "studio") {
+      prCap = native ? 1.5 : 2.0;       // studio: push pixels, but never above 2x even on web
+      prMul = 1.0;
+    } else if (q === "high") {
+      prCap = native ? 1.25 : 1.75;
+      prMul = 1.0;
+    } else if (q === "medium") {
+      prCap = native ? 1.0 : 1.25;
+      prMul = 1.0;
+    } else { // low
+      prCap = native ? 0.7 : 1.0;
+      prMul = 0.6;
+    }
+    this.renderer.setPixelRatio(Math.min(dpr, prCap) * prMul);
+
+    // ── shadow map size per tier ──
     if (q === "low") {
-      const cap = native ? 0.7 : 1;
-      this.renderer.setPixelRatio(Math.min(dpr, cap) * 0.6);
       this.map.moon.castShadow = false;
       this.map.moon.shadow.mapSize.set(512, 512);
     } else if (q === "medium") {
-      const cap = native ? 1.0 : 1.25;
-      this.renderer.setPixelRatio(Math.min(dpr, cap));
       this.map.moon.castShadow = true;
       this.map.moon.shadow.mapSize.set(1024, 1024);
-    } else {
-      const cap = native ? 1.25 : 1.75;
-      this.renderer.setPixelRatio(Math.min(dpr, cap));
+    } else if (q === "high") {
       this.map.moon.castShadow = true;
       this.map.moon.shadow.mapSize.set(2048, 2048);
+    } else { // studio — push to 4096 if the GPU can handle it
+      const maxTex = this.gpuProfile?.maxTextureSize ?? 4096;
+      const shadowSize = maxTex >= 4096 ? 4096 : 2048;
+      this.map.moon.castShadow = true;
+      this.map.moon.shadow.mapSize.set(shadowSize, shadowSize);
     }
     if (this.map.moon.shadow.map) {
       this.map.moon.shadow.map.dispose();
       (this.map.moon.shadow as any).map = null;
     }
+
+    // ── MSAA only on lean tiers that don't use post-processing ──
+    // (the composer's render target doesn't carry MSAA through to the
+    //  output, so enabling it on studio/high just wastes fill-rate).
+    // WebGLRenderer.antialias can't be toggled after creation; we leave
+    // the constructor's choice in place. Quality changes that flip it
+    // require a hard page reload, which is acceptable since the player
+    // rarely switches tiers mid-session.
+
+    // ── rebuild the post-processing pipeline for the new tier ──
+    this.postfx?.setQuality(q, s.postProcessing, s.cinematicGrain);
+    this.fpsMonitor?.setCurrent(q);
   }
 
   dispose() {
@@ -463,6 +546,7 @@ export class Game {
     this.renderer.domElement.removeEventListener("click", h.onClick);
     this.renderer.domElement.removeEventListener("contextmenu", h.onCtx);
     window.clearTimeout(this.bannerTimer);
+    this.postfx?.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
@@ -1120,6 +1204,22 @@ export class Game {
     }
 
     this.effects.update(dt);
-    this.renderer.render(this.scene, this.player.camera);
+
+    // post-processing pipeline (or direct render if disabled)
+    if (this.postfx) {
+      this.postfx.render();
+    } else {
+      this.renderer.render(this.scene, this.player.camera);
+    }
+
+    // adaptive quality: monitor FPS and step down if sustained low
+    if (this.fpsMonitor && this.state === "playing") {
+      const stepped = this.fpsMonitor.tick(performance.now());
+      if (stepped) {
+        // apply the stepped-down quality (this rebuilds the post-FX
+        // pipeline and the shadow map settings atomically)
+        this.applySettings({ ...this.settings, quality: stepped });
+      }
+    }
   }
 }

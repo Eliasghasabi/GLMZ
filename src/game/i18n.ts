@@ -160,6 +160,9 @@ export const STRINGS: Record<LangId, Record<string, string>> = {
     difficultyNormalBlurb: "Balanced engagement. The intended experience.",
     difficultyHardBlurb: "Tougher squads, relentless pressure, deadly aim.",
 
+    postProcessing: "POST-PROCESSING",
+    cinematicGrain: "CINEMATIC GRAIN",
+
     crosshairTitle: "CROSSHAIR",
     reticleStyle: "RETICLE STYLE",
     colour: "COLOUR",
@@ -240,6 +243,9 @@ export const STRINGS: Record<LangId, Record<string, string>> = {
     difficultyEasyBlurb: "دشمنان کمتر و ضعیف‌تر. دقت آمرزنده.",
     difficultyNormalBlurb: "نبرد متعادل. تجربه پیشنهادی.",
     difficultyHardBlurb: "گروه‌های سرسخت، فشار بی‌وقفه، هدف‌گیری کشنده.",
+
+    postProcessing: "پس‌پردازش تصویر",
+    cinematicGrain: "نویز سینمایی",
 
     crosshairTitle: "نقطه‌نشانه",
     reticleStyle: "نوع نشانه",

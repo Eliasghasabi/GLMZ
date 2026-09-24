@@ -8,6 +8,7 @@ import Menus from "./ui/Menus";
 import TouchControls, { isTouchDevice } from "./ui/TouchControls";
 import { startScoreService } from "./net/scoreService";
 import { getLang, onLangChange, LANGS } from "./game/i18n";
+import { ensureVazirmatnLoaded } from "./game/fonts";
 
 function usePortrait(touch: boolean) {
   const [portrait, setPortrait] = useState(
@@ -28,11 +29,16 @@ function usePortrait(touch: boolean) {
  * them in sync when the player picks a different language in settings.
  * This is what makes the Persian UI actually render in Vazirmatn and
  * flip to RTL for the player.
+ *
+ * Vazirmatn is loaded as a base64 data-URI directly in the JS bundle
+ * so it works reliably inside the Android WebView, where /fonts/* URL
+ * resolution has historically been flaky.
  */
 function useApplyLanguage() {
   const [lang, setLang] = useState(getLang());
   useEffect(() => onLangChange(setLang), []);
   useEffect(() => {
+    ensureVazirmatnLoaded();
     const info = LANGS[lang];
     if (typeof document !== "undefined") {
       document.documentElement.lang = info.htmlLang;

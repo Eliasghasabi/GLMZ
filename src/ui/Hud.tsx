@@ -74,6 +74,19 @@ export default function Hud() {
     []
   );
 
+  // quality auto-step-down toast — fires when the FPS monitor
+  // downgrades the quality tier to keep the game playable
+  const [qualityToast, setQualityToast] = useState<{ id: number; tier: string } | null>(null);
+  useEffect(
+    () =>
+      bus.on("quality-auto-step", (tier: string) => {
+        const id = Date.now();
+        setQualityToast({ id, tier: tier.toUpperCase() });
+        window.setTimeout(() => setQualityToast((t) => (t && t.id === id ? null : t)), 3200);
+      }),
+    []
+  );
+
   // damage vignette + chromatic aberration
   const [dmg, setDmg] = useState(0);
   const [chroma, setChroma] = useState(0);
@@ -348,6 +361,19 @@ export default function Hud() {
               <div className="text-[8px] tracking-[0.2em] text-[#9fb0c2]">{u.kind.toUpperCase()}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── quality auto-step-down toast ── */}
+      {qualityToast && (
+        <div
+          key={qualityToast.id}
+          className="feed-item absolute left-1/2 top-20 -translate-x-1/2 clip-btn border border-[#ff8a5a]/70 bg-[#2a1408]/85 px-4 py-1.5 text-center"
+        >
+          <div className="text-[9px] tracking-[0.3em] text-[#ff8a5a]">ADAPTIVE QUALITY</div>
+          <div className="text-[11px] font-semibold tracking-wide text-white">
+            Reduced to {qualityToast.tier} for performance
+          </div>
         </div>
       )}
 

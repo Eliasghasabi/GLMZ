@@ -322,8 +322,8 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
         />
         <div>
           <div className="mb-2 text-xs tracking-[0.2em] text-[#9fb0c2]">{tr("graphicsQuality")}</div>
-          <div className="flex gap-2">
-            {(["low", "medium", "high"] as Quality[]).map((q) => (
+          <div className="flex flex-wrap gap-2">
+            {(["low", "medium", "high", "studio"] as Quality[]).map((q) => (
               <button
                 key={q}
                 type="button"
@@ -334,9 +334,11 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
                   click();
                   update({ quality: q });
                 }}
-                className={`clip-btn flex-1 border px-3 py-2 text-xs tracking-[0.2em] transition-all ${
+                className={`clip-btn flex-1 border px-2.5 py-2 text-xs tracking-[0.15em] transition-all ${
                   s.quality === q
-                    ? "border-[#e8b545] bg-[#2a2210] text-[#e8b545]"
+                    ? q === "studio"
+                      ? "border-[#b48cff] bg-[#1a1024] text-[#b48cff]"
+                      : "border-[#e8b545] bg-[#2a2210] text-[#e8b545]"
                     : "border-[#2c3641] bg-[#10161d] text-[#647489] hover:text-[#9fb0c2]"
                 }`}
               >
@@ -344,7 +346,47 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
               </button>
             ))}
           </div>
+          <div className="mt-1.5 text-[10px] italic leading-relaxed text-[#647489]">
+            {s.quality === "studio" && "STUDIO: full post-processing + 4K shadows. Best on flagship phones."}
+            {s.quality === "high" && "HIGH: bloom + soft PCF shadows + filmic tone map."}
+            {s.quality === "medium" && "MEDIUM: basic shadows + filmic tone map."}
+            {s.quality === "low" && "LOW: no shadows, no post-processing. For older devices."}
+          </div>
         </div>
+        {/* post-processing toggle — only meaningful on high/studio */}
+        <button
+          type="button"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); click(); update({ postProcessing: !s.postProcessing }); }}
+          onMouseEnter={hover}
+          disabled={s.quality === "low" || s.quality === "medium"}
+          className={`clip-btn w-full border px-4 py-2 text-xs tracking-[0.18em] transition-all ${
+            s.quality === "low" || s.quality === "medium"
+              ? "border-[#2c3641] bg-[#10161d] text-[#3a4450] cursor-not-allowed"
+              : s.postProcessing
+                ? "border-[#e8b545] bg-[#2a2210] text-[#e8b545]"
+                : "border-[#2c3641] bg-[#10161d] text-[#647489] hover:text-[#9fb0c2]"
+          }`}
+        >
+          {tr("postProcessing")}: {s.postProcessing ? tr("on") : tr("off")}
+        </button>
+        {/* cinematic grain toggle — only meaningful on studio */}
+        <button
+          type="button"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); click(); update({ cinematicGrain: !s.cinematicGrain }); }}
+          onMouseEnter={hover}
+          disabled={s.quality !== "studio"}
+          className={`clip-btn w-full border px-4 py-2 text-xs tracking-[0.18em] transition-all ${
+            s.quality !== "studio"
+              ? "border-[#2c3641] bg-[#10161d] text-[#3a4450] cursor-not-allowed"
+              : s.cinematicGrain
+                ? "border-[#b48cff] bg-[#1a1024] text-[#b48cff]"
+                : "border-[#2c3641] bg-[#10161d] text-[#647489] hover:text-[#9fb0c2]"
+          }`}
+        >
+          {tr("cinematicGrain")}: {s.cinematicGrain ? tr("on") : tr("off")}
+        </button>
         {/* language selector */}
         <div>
           <div className="mb-2 text-xs tracking-[0.2em] text-[#9fb0c2]">{tr("language")}</div>
