@@ -7,6 +7,7 @@ import Hud from "./ui/Hud";
 import Menus from "./ui/Menus";
 import TouchControls, { isTouchDevice } from "./ui/TouchControls";
 import { startScoreService } from "./net/scoreService";
+import { getLang, onLangChange, LANGS } from "./game/i18n";
 
 function usePortrait(touch: boolean) {
   const [portrait, setPortrait] = useState(
@@ -22,12 +23,33 @@ function usePortrait(touch: boolean) {
   return portrait;
 }
 
+/**
+ * Apply the active language to <html lang> and the body font, and keep
+ * them in sync when the player picks a different language in settings.
+ * This is what makes the Persian UI actually render in Vazirmatn and
+ * flip to RTL for the player.
+ */
+function useApplyLanguage() {
+  const [lang, setLang] = useState(getLang());
+  useEffect(() => onLangChange(setLang), []);
+  useEffect(() => {
+    const info = LANGS[lang];
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = info.htmlLang;
+      document.documentElement.dir = info.dir;
+      document.body.style.fontFamily = info.fontFamily;
+    }
+  }, [lang]);
+}
+
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null);
   const [screen, setScreen] = useState<ScreenName>("menu");
   const [touch] = useState(isTouchDevice);
   const [bootError, setBootError] = useState<string | null>(null);
   const portrait = usePortrait(touch);
+
+  useApplyLanguage();
 
   // bridges gameplay run results to the leaderboard backend
   useEffect(() => { startScoreService(); }, []);

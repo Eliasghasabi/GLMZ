@@ -419,16 +419,26 @@ export class Game {
     // graphics quality
     const q = s.quality;
     const dpr = window.devicePixelRatio || 1;
+
+    // Inside the native Android shell, cull the pixel ratio hard.
+    // Modern phones report 2.5–3.0; rendering at full DPR is what makes
+    // the WebView version feel sluggish compared to a desktop browser.
+    const native = typeof window !== "undefined" &&
+      (window as any).Capacitor?.isNativePlatform?.();
+
     if (q === "low") {
-      this.renderer.setPixelRatio(Math.min(dpr, 1) * 0.6);
+      const cap = native ? 0.7 : 1;
+      this.renderer.setPixelRatio(Math.min(dpr, cap) * 0.6);
       this.map.moon.castShadow = false;
       this.map.moon.shadow.mapSize.set(512, 512);
     } else if (q === "medium") {
-      this.renderer.setPixelRatio(Math.min(dpr, 1.25));
+      const cap = native ? 1.0 : 1.25;
+      this.renderer.setPixelRatio(Math.min(dpr, cap));
       this.map.moon.castShadow = true;
       this.map.moon.shadow.mapSize.set(1024, 1024);
     } else {
-      this.renderer.setPixelRatio(Math.min(dpr, 1.75));
+      const cap = native ? 1.25 : 1.75;
+      this.renderer.setPixelRatio(Math.min(dpr, cap));
       this.map.moon.castShadow = true;
       this.map.moon.shadow.mapSize.set(2048, 2048);
     }

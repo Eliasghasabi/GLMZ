@@ -56,7 +56,12 @@ const DEFAULTS: Settings = {
 const SETTINGS_KEY = "shadowstrike.settings.v1";
 const BEST_KEY = "shadowstrike.best.v1";
 
-/** touch devices default to lower graphics + slightly higher look sensitivity */
+/** touch devices default to lower graphics + slightly higher look sensitivity.
+ *  Inside the native Android APK we push even harder: phones commonly
+ *  report a devicePixelRatio of 2.5–3, which multiplied by the high-quality
+ *  cap (1.75) would ask the GPU to render ~5x the visible pixels. That
+ *  tanks framerate. We force low quality on native and let the renderer
+ *  cap the pixel ratio further. */
 function deviceDefaults(): Settings {
   const d = { ...DEFAULTS };
   try {
@@ -65,6 +70,15 @@ function deviceDefaults(): Settings {
     if (coarse && touch) {
       d.quality = "low";
       d.sensitivity = 1.35;
+      d.fov = 80;
+    }
+    // Capacitor Android shell — guaranteed native, always treated as touch
+    const native = typeof window !== "undefined" &&
+      (window as any).Capacitor?.isNativePlatform?.();
+    if (native) {
+      d.quality = "low";
+      // touch sticks need a touch more look gain to feel responsive
+      if (!coarse) d.sensitivity = 1.4;
       d.fov = 80;
     }
   } catch {

@@ -10,7 +10,6 @@ import {
   loadSettings,
   saveSettings,
   loadBest,
-  DIFFICULTIES,
   type Settings,
   type Quality,
   type Difficulty,
@@ -19,8 +18,25 @@ import { isTouchDevice } from "./TouchControls";
 
 /** ask the browser to go fullscreen (hides Android/iOS chrome and the
  *  Windows browser toolbar). Must run inside a real click/tap handler —
- *  browsers reject fullscreen requests that aren't tied to a user gesture. */
-function requestGameFullscreen() {
+ *  browsers reject fullscreen requests that aren't tied to a user gesture.
+ *
+ *  Inside the Capacitor Android shell, document.requestFullscreen() is
+ *  silently ignored — the WebView already fills the window, but the
+ *  Android status + navigation bars still show. In that case we route
+ *  through the native StatusBar plugin to actually hide them. */
+async function requestGameFullscreen() {
+  // Native path first — when running inside the APK, Capacitor handles it.
+  try {
+    const { isNativeApp, enterNativeFullscreen } = await import("../game/platform");
+    if (isNativeApp()) {
+      await enterNativeFullscreen();
+      requestLandscapeLock();
+      return;
+    }
+  } catch {
+    /* module failed to load — fall through to web path */
+  }
+
   try {
     const el = document.documentElement as HTMLElement & {
       webkitRequestFullscreen?: () => Promise<void> | void;
@@ -66,6 +82,7 @@ import { getProfile, needsUsername, onProfileChange } from "../net/profile";
 import { type SubmissionState } from "../net/scoreService";
 import heroUrl from "../../public/tex/hero.jpg?inline";
 import soldierUrl from "../../public/tex/soldier.jpg?inline";
+import { getLang, setLang, onLangChange, LANGS, t as tr, type LangId } from "../game/i18n";
 import {
   Play,
   Settings as SettingsIcon,
@@ -134,6 +151,41 @@ function TacButton({
   );
 }
 
+// ── language picker ─────────────────────────────────────────
+// small top-left pill with EN | FA buttons. Switches instantly and
+// re-renders the whole React tree because every component reads tr()
+// at render time.
+
+function LanguagePicker() {
+  const [lang, setLangState] = useState<LangId>(getLang());
+  useEffect(() => onLangChange(setLangState), []);
+
+  return (
+    <div className="clip-btn absolute left-5 top-5 flex items-center gap-0 border border-[#2c3641] bg-[#0b1016]/80 text-[10px] tracking-[0.18em]">
+      {(Object.keys(LANGS) as LangId[]).map((id, i) => (
+        <button
+          key={id}
+          type="button"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            click();
+            setLang(id);
+          }}
+          onMouseEnter={hover}
+          className={`px-3 py-1.5 transition-colors ${
+            lang === id
+              ? "bg-[#2a2210] text-[#e8b545]"
+              : "text-[#647489] hover:text-[#9fb0c2]"
+          } ${i > 0 ? "border-l border-[#2c3641]" : ""}`}
+        >
+          {LANGS[id].label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Panel({ title, children, wide }: { title: string; children: React.ReactNode; wide?: boolean }) {
   return (
     <div
@@ -198,13 +250,13 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <Panel title="SETTINGS">
+    <Panel title={tr("settingsTitle")}>
       <div className="space-y-5">
         <div>
           <div className="mb-2 flex items-center justify-between text-xs tracking-[0.2em] text-[#9fb0c2]">
-            <span>DIFFICULTY</span>
+            <span>{tr("difficulty")}</span>
             <span className="text-[10px] tracking-[0.15em] text-[#647489]">
-              {DIFFICULTIES[s.difficulty].blurb}
+              {s.difficulty === "easy" ? tr("difficultyEasyBlurb") : s.difficulty === "hard" ? tr("difficultyHardBlurb") : tr("difficultyNormalBlurb")}
             </span>
           </div>
           <div className="flex gap-2">
@@ -227,13 +279,13 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
                     : "border-[#2c3641] bg-[#10161d] text-[#647489] hover:text-[#9fb0c2]"
                 }`}
               >
-                {DIFFICULTIES[d].label}
+                {d === "easy" ? tr("difficultyEasy") : d === "normal" ? tr("difficultyNormal") : tr("difficultyHard")}
               </button>
             ))}
           </div>
         </div>
         <Row
-          label="MOUSE SENSITIVITY"
+          label={tr("mouseSensitivity")}
           value={s.sensitivity}
           min={0.2}
           max={3}
@@ -242,7 +294,7 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
           fmt={(v) => v.toFixed(2)}
         />
         <Row
-          label="FIELD OF VIEW"
+          label={tr("fieldOfView")}
           value={s.fov}
           min={60}
           max={110}
@@ -251,7 +303,7 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
           fmt={(v) => `${Math.round(v)}°`}
         />
         <Row
-          label="MASTER VOLUME"
+          label={tr("masterVolume")}
           value={s.masterVolume}
           min={0}
           max={1}
@@ -260,7 +312,7 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
           fmt={(v) => `${Math.round(v * 100)}%`}
         />
         <Row
-          label="SFX VOLUME"
+          label={tr("sfxVolume")}
           value={s.sfxVolume}
           min={0}
           max={1}
@@ -269,7 +321,7 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
           fmt={(v) => `${Math.round(v * 100)}%`}
         />
         <div>
-          <div className="mb-2 text-xs tracking-[0.2em] text-[#9fb0c2]">GRAPHICS QUALITY</div>
+          <div className="mb-2 text-xs tracking-[0.2em] text-[#9fb0c2]">{tr("graphicsQuality")}</div>
           <div className="flex gap-2">
             {(["low", "medium", "high"] as Quality[]).map((q) => (
               <button
@@ -293,6 +345,32 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
             ))}
           </div>
         </div>
+        {/* language selector */}
+        <div>
+          <div className="mb-2 text-xs tracking-[0.2em] text-[#9fb0c2]">{tr("language")}</div>
+          <div className="flex gap-2">
+            {(Object.keys(LANGS) as LangId[]).map((l) => (
+              <button
+                key={l}
+                type="button"
+                onMouseEnter={hover}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  click();
+                  setLang(l);
+                }}
+                className={`clip-btn flex-1 border px-3 py-2 text-xs tracking-[0.2em] transition-all ${
+                  getLang() === l
+                    ? "border-[#e8b545] bg-[#2a2210] text-[#e8b545]"
+                    : "border-[#2c3641] bg-[#10161d] text-[#647489] hover:text-[#9fb0c2]"
+                }`}
+              >
+                {LANGS[l].label}
+              </button>
+            ))}
+          </div>
+        </div>
         <button
           type="button"
           onMouseDown={(e) => e.stopPropagation()}
@@ -304,7 +382,7 @@ function SettingsPanel({ onBack }: { onBack: () => void }) {
           onMouseEnter={hover}
           className="btn-tac clip-btn mt-2 flex items-center gap-2 px-5 py-2.5 text-xs"
         >
-          <ChevronLeft size={15} /> BACK
+          <ChevronLeft size={15} /> {tr("back")}
         </button>
       </div>
     </Panel>
@@ -419,6 +497,8 @@ function CrosshairPreview({ cfg }: { cfg: CrosshairConfig }) {
 
 function CrosshairPanel({ onBack }: { onBack: () => void }) {
   const [cfg, setCfg] = useState<CrosshairConfig>(() => getCrosshair());
+  const [, forceLang] = useState<LangId>(getLang());
+  useEffect(() => onLangChange(forceLang), []);
 
   const update = (patch: Partial<CrosshairConfig>) => {
     setCrosshair(patch);
@@ -426,7 +506,7 @@ function CrosshairPanel({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <Panel title="CROSSHAIR" wide>
+    <Panel title={tr("crosshairTitle")} wide>
       <div className="space-y-5">
         {/* live preview */}
         <div className="clip-btn relative h-32 overflow-hidden border border-[#1e2831] bg-gradient-to-br from-[#0a0e13] via-[#10161d] to-[#0a0e13]">
@@ -437,12 +517,12 @@ function CrosshairPanel({ onBack }: { onBack: () => void }) {
           <div className="absolute left-1/2 top-1/2 h-0 w-0">
             <CrosshairPreview cfg={cfg} />
           </div>
-          <div className="absolute left-2 top-2 font-mono2 text-[9px] tracking-wider text-[#647489]">LIVE PREVIEW</div>
+          <div className="absolute left-2 top-2 font-mono2 text-[9px] tracking-wider text-[#647489]">{tr("livePreview")}</div>
         </div>
 
         {/* style selector */}
         <div>
-          <div className="mb-2 text-xs tracking-[0.2em] text-[#9fb0c2]">RETICLE STYLE</div>
+          <div className="mb-2 text-xs tracking-[0.2em] text-[#9fb0c2]">{tr("reticleStyle")}</div>
           <div className="grid grid-cols-4 gap-1.5">
             {CROSSHAIR_STYLES.map((st) => (
               <button
@@ -469,7 +549,7 @@ function CrosshairPanel({ onBack }: { onBack: () => void }) {
 
         {/* color selector */}
         <div>
-          <div className="mb-2 text-xs tracking-[0.2em] text-[#9fb0c2]">COLOUR</div>
+          <div className="mb-2 text-xs tracking-[0.2em] text-[#9fb0c2]">{tr("colour")}</div>
           <div className="flex flex-wrap gap-2">
             {CROSSHAIR_COLORS.map((c) => (
               <button
@@ -491,13 +571,13 @@ function CrosshairPanel({ onBack }: { onBack: () => void }) {
         </div>
 
         {/* sliders */}
-        <Row label="GAP" value={cfg.gap} min={2} max={28} step={1}
+        <Row label={tr("gap")} value={cfg.gap} min={2} max={28} step={1}
              onChange={(v) => update({ gap: v })} fmt={(v) => `${Math.round(v)}px`} />
-        <Row label="THICKNESS" value={cfg.thickness} min={1} max={4} step={0.5}
+        <Row label={tr("thickness")} value={cfg.thickness} min={1} max={4} step={0.5}
              onChange={(v) => update({ thickness: v })} fmt={(v) => `${v.toFixed(1)}px`} />
-        <Row label="LENGTH" value={cfg.length} min={4} max={18} step={1}
+        <Row label={tr("length")} value={cfg.length} min={4} max={18} step={1}
              onChange={(v) => update({ length: v })} fmt={(v) => `${Math.round(v)}px`} />
-        <Row label="OUTLINE" value={cfg.outline} min={0} max={1} step={0.1}
+        <Row label={tr("outline")} value={cfg.outline} min={0} max={1} step={0.1}
              onChange={(v) => update({ outline: v })} fmt={(v) => `${Math.round(v * 100)}%`} />
 
         {/* dot toggle */}
@@ -512,7 +592,7 @@ function CrosshairPanel({ onBack }: { onBack: () => void }) {
               : "border-[#2c3641] bg-[#10161d] text-[#647489] hover:text-[#9fb0c2]"
           }`}
         >
-          CENTRE DOT: {cfg.dot ? "ON" : "OFF"}
+          {tr("centreDot")}: {cfg.dot ? tr("on") : tr("off")}
         </button>
 
         <div className="flex gap-2">
@@ -523,7 +603,7 @@ function CrosshairPanel({ onBack }: { onBack: () => void }) {
             onMouseEnter={hover}
             className="btn-tac clip-btn flex flex-1 items-center justify-center gap-2 py-2.5 text-xs"
           >
-            <RotateCcw size={14} /> RESET
+            <RotateCcw size={14} /> {tr("reset")}
           </button>
           <button
             type="button"
@@ -532,7 +612,7 @@ function CrosshairPanel({ onBack }: { onBack: () => void }) {
             onMouseEnter={hover}
             className="btn-tac clip-btn flex flex-1 items-center justify-center gap-2 py-2.5 text-xs"
           >
-            <ChevronLeft size={15} /> BACK
+            <ChevronLeft size={15} /> {tr("back")}
           </button>
         </div>
       </div>
@@ -641,6 +721,9 @@ export default function Menus() {
   useEffect(() => bus.on("unlocks", (l: { kind: string; name: string }[]) =>
     setNewUnlocks((p) => [...p, ...l])), []);
   const [best] = useState(() => loadBest());
+  // re-render when the active language changes so tr() calls re-read
+  const [, forceLang] = useState<LangId>(getLang());
+  useEffect(() => onLangChange(forceLang), []);
 
   useEffect(
     () =>
@@ -687,7 +770,7 @@ export default function Menus() {
   // left first-time players stuck on the menu after pressing PLAY.
   /** single entry point for starting a run from the menu */
   const startGame = () => {
-    requestGameFullscreen();
+    void requestGameFullscreen();
     const g = getGame();
     if (g) {
       g.start();
@@ -769,19 +852,19 @@ export default function Menus() {
           <div className="rise-in text-center">
             <div className="mb-3 flex items-center justify-center gap-3 text-[11px] tracking-[0.5em] text-[#8fa8bf]">
               <span className="h-px w-14 bg-[#8fa8bf]/40" />
-              TACTICAL COMBAT PROTOCOL
+              {tr("tagline")}
               <span className="h-px w-14 bg-[#8fa8bf]/40" />
             </div>
             <h1 className="font-display title-glitch text-6xl text-white md:text-8xl">
               <span className="fx-holographic">SHADOW</span><span className="text-[#e8b545]">STRIKE</span>
             </h1>
             <p className="mt-3 text-xs tracking-[0.3em] text-[#7c8ea1]">
-              ELIAS STREET // WAVE SURVIVAL // NIGHT OPERATION
+              {tr("subtagline")}
             </p>
           </div>
           <div className="rise-in flex flex-col gap-3" style={{ animationDelay: "0.12s" }}>
             <TacButton
-              label="PLAY"
+              label={tr("play")}
               icon={<Play size={16} />}
               onClick={() => {
                 if (needsUsername()) {
@@ -793,7 +876,7 @@ export default function Menus() {
               }}
             />
             <TacButton
-              label="SETTINGS"
+              label={tr("settings")}
               icon={<SettingsIcon size={16} />}
               onClick={() => {
                 setSettingsFrom("menu");
@@ -801,21 +884,21 @@ export default function Menus() {
               }}
             />
             <TacButton
-              label="LEADERBOARD"
+              label={tr("leaderboard")}
               icon={<TrophyIcon size={16} />}
               onClick={() => bus.emit("screen", "leaderboard")}
             />
             <TacButton
-              label="LOADOUT"
+              label={tr("loadout")}
               icon={<Boxes size={16} />}
               onClick={() => bus.emit("screen", "loadout")}
             />
             <TacButton
-              label="CROSSHAIR"
+              label={tr("crosshair")}
               icon={<Crosshair size={16} />}
               onClick={() => bus.emit("screen", "crosshair")}
             />
-            <TacButton label="HOW TO PLAY" icon={<BookOpen size={16} />} onClick={() => bus.emit("screen", "howto")} />
+            <TacButton label={tr("howToPlay")} icon={<BookOpen size={16} />} onClick={() => bus.emit("screen", "howto")} />
           </div>
           {best.score > 0 && (
             <div className="rise-in flex items-center gap-6 border border-[#1e2831] bg-[#080c11]/80 px-6 py-3 text-xs tracking-[0.2em] text-[#8fa8bf]" style={{ animationDelay: "0.2s" }}>
@@ -832,7 +915,7 @@ export default function Menus() {
             className="clip-btn absolute right-5 top-5 flex items-center gap-2 border border-[#2c3641] bg-[#0b1016]/80 px-3 py-1.5 text-[10px] tracking-[0.18em] text-[#8fa8bf] transition-colors hover:text-[#e8b545]"
           >
             <UserPlus size={12} />
-            {profile.username ? profile.username : "SET CALLSIGN"}
+            {profile.username ? profile.username : tr("setCallsign")}
           </button>
           <div className="absolute bottom-5 flex flex-col items-center gap-1.5 text-[10px] tracking-[0.25em] text-[#4b5a6b]">
             <span>
@@ -849,6 +932,9 @@ export default function Menus() {
               CREATED BY ELIAS
             </a>
           </div>
+          {/* language picker — top-left, only visible when the player has a callsign set
+              (so first-time onboarding stays uncluttered) */}
+          <LanguagePicker />
         </div>
       </div>
     );
@@ -898,14 +984,14 @@ export default function Menus() {
       <div className="fade-in flex flex-col items-center gap-8">
         <div className="text-center">
           <h2 className="font-display text-5xl tracking-[0.1em] text-white" style={{ textShadow: "0 0 30px rgba(0,0,0,0.9)" }}>
-            PAUSED
+            {tr("paused")}
           </h2>
-          <p className="mt-2 text-[11px] tracking-[0.4em] text-[#8fa8bf]">OPERATION ON HOLD</p>
+          <p className="mt-2 text-[11px] tracking-[0.4em] text-[#8fa8bf]">{tr("operationOnHold")}</p>
         </div>
         <div className="flex flex-col gap-3">
-          <TacButton label="RESUME" icon={<Play size={16} />} onClick={() => { requestGameFullscreen(); cmd((g) => g.resume())(); }} />
+          <TacButton label={tr("resume")} icon={<Play size={16} />} onClick={() => { void requestGameFullscreen(); cmd((g) => g.resume())(); }} />
           <TacButton
-            label="SETTINGS"
+            label={tr("settings")}
             icon={<SettingsIcon size={16} />}
             onClick={() => {
               setSettingsFrom("paused");
@@ -913,15 +999,15 @@ export default function Menus() {
             }}
           />
           <TacButton
-            label="CROSSHAIR"
+            label={tr("crosshair")}
             icon={<Crosshair size={16} />}
             onClick={() => {
               setSettingsFrom("paused");
               bus.emit("screen", "crosshair");
             }}
           />
-          <TacButton label="RESTART" icon={<RotateCcw size={16} />} onClick={() => { requestGameFullscreen(); cmd((g) => g.restart())(); }} />
-          <TacButton label="MAIN MENU" icon={<Home size={16} />} onClick={cmd((g) => g.quitToMenu())} danger />
+          <TacButton label={tr("restart")} icon={<RotateCcw size={16} />} onClick={() => { void requestGameFullscreen(); cmd((g) => g.restart())(); }} />
+          <TacButton label={tr("mainMenu")} icon={<Home size={16} />} onClick={cmd((g) => g.quitToMenu())} danger />
         </div>
       </div>,
       true
@@ -1007,7 +1093,7 @@ export default function Menus() {
             ))}
           </div>
           <div className="flex flex-col gap-3">
-            <TacButton label="RESTART" icon={<RotateCcw size={16} />} onClick={() => { requestGameFullscreen(); cmd((g) => { setNewUnlocks([]); g.restart(); })(); }} />
+            <TacButton label="RESTART" icon={<RotateCcw size={16} />} onClick={() => { void requestGameFullscreen(); cmd((g) => { setNewUnlocks([]); g.restart(); })(); }} />
             <TacButton label="LEADERBOARD" icon={<TrophyIcon size={16} />} onClick={() => bus.emit("screen", "leaderboard")} />
             <TacButton label="MAIN MENU" icon={<Home size={16} />} onClick={cmd((g) => { setNewUnlocks([]); g.quitToMenu(); })} danger />
           </div>
