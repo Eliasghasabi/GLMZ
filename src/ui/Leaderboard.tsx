@@ -79,7 +79,7 @@ export default function Leaderboard({
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-[#05070b]">
-      <div className="menu-grid opacity-40" />
+      <div className="menu-grid pointer-events-none opacity-40" />
 
       {/* ── header ── */}
       <div className="relative flex shrink-0 flex-wrap items-center gap-3 border-b border-[#1e2831] px-5 py-3">

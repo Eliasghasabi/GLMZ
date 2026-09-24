@@ -385,6 +385,11 @@ canvas {
 .menu-grid {
   position: absolute;
   inset: 0;
+  /* Decorative background — never intercepts pointer events. Setting
+     this here as a defensive default so a future usage that forgets
+     the `pointer-events-none` Tailwind class still won't break the
+     UI hit-testing. */
+  pointer-events: none;
   background:
     linear-gradient(rgba(120, 150, 190, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(120, 150, 190, 0.05) 1px, transparent 1px);
@@ -394,6 +399,7 @@ canvas {
 .menu-sweep {
   position: absolute;
   inset: -40%;
+  pointer-events: none;
   background: conic-gradient(from 0deg, transparent 0deg, rgba(232, 181, 69, 0.06) 20deg, transparent 60deg);
   animation: sweep 9s linear infinite;
 }

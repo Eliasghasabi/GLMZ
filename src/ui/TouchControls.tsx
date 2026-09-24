@@ -20,11 +20,29 @@ import { WEAPONS, WEAPON_ORDER, type WeaponId } from "../game/weapons";
 import { bus, hud as initialHud, type HudData } from "../store";
 import { Flame, Crosshair, RotateCcw, ChevronsUp, Swords, Pause as PauseIcon } from "lucide-react";
 
-/** touch-capable device with no fine pointer (i.e. not a laptop trackpad) */
+/** touch-capable device with no fine pointer (i.e. not a laptop trackpad).
+ *
+ *  Inside an Android WebView (Capacitor wrapper), the standard
+ *  `pointer: coarse` media query and `ontouchstart` flag can be
+ *  unreliable — some WebView builds report a fine pointer even on
+ *  a touch-only phone. So we additionally check the Capacitor native
+ *  bridge signal: if `Capacitor.isNativePlatform()` returns true we
+ *  know we're inside the APK and the device is guaranteed to be a
+ *  touch device (phones/tablets are the only thing the APK ships
+ *  to). This makes the touch UI show up correctly inside the
+ *  Android build without breaking the desktop browser experience. */
 export function isTouchDevice(): boolean {
   if (typeof window === "undefined") return false;
+  // 1. Capacitor native bridge = Android/iOS shell → always touch
+  try {
+    const cap = (window as any).Capacitor;
+    if (cap?.isNativePlatform?.()) return true;
+  } catch { /* ignore */ }
+  // 2. Standard web touch detection
   const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
-  const touch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  const touch = "ontouchstart" in window || (navigator.maxTouchPoints ?? 0) > 0;
+  // On the web build, require BOTH signals to avoid false-positives
+  // on laptops with touchscreens (which the player uses mouse+kb on).
   return touch && coarse;
 }
 

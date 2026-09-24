@@ -83,6 +83,7 @@ import { type SubmissionState } from "../net/scoreService";
 import heroUrl from "../../public/tex/hero.jpg?inline";
 import soldierUrl from "../../public/tex/soldier.jpg?inline";
 import { getLang, setLang, onLangChange, LANGS, t as tr, type LangId } from "../game/i18n";
+import { onAndroidBack } from "../game/platform";
 import {
   Play,
   Settings as SettingsIcon,
@@ -110,8 +111,15 @@ import {
 function useScreen(): ScreenName {
   const [screen, setScreen] = useState<ScreenName>("menu");
   useEffect(() => bus.on("screen", (s: ScreenName) => setScreen(s)), []);
+  // Keep a ref synced so the Android back-button handler (registered
+  // once on mount) can read the CURRENT screen without re-registering
+  // on every screen change.
+  currentScreenRef.current = screen;
   return screen;
 }
+// Module-level ref that the back-button handler reads. Updated by
+// useScreen on every render.
+const currentScreenRef: { current: ScreenName } = { current: "menu" };
 
 function click() {
   audio.init();
@@ -193,12 +201,12 @@ function LanguagePicker() {
 function Panel({ title, children, wide }: { title: string; children: React.ReactNode; wide?: boolean }) {
   return (
     <div
-      className={`clip-panel fade-in relative border border-[#1e2831] bg-[#080c11]/92 p-8 backdrop-blur-md ${
-        wide ? "w-[min(680px,92vw)]" : "w-[min(480px,92vw)]"
+      className={`clip-panel fade-in relative max-h-[92vh] overflow-y-auto border border-[#1e2831] bg-[#080c11]/92 p-4 backdrop-blur-md sm:p-6 lg:p-8 ${
+        wide ? "w-[min(680px,96vw)] lg:w-[min(680px,92vw)]" : "w-[min(480px,96vw)] lg:w-[min(480px,92vw)]"
       }`}
     >
       <div className="absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-[#e8b545] to-transparent" />
-      <h2 className="font-display mb-6 text-2xl tracking-[0.15em] text-white">{title}</h2>
+      <h2 className="font-display mb-4 text-xl tracking-[0.15em] text-white lg:mb-6 lg:text-2xl">{title}</h2>
       {children}
     </div>
   );
@@ -680,15 +688,31 @@ const CONTROLS: [string, string][] = [
   ["ESC", "Pause"],
 ];
 
+// Touch-device controls shown in the How-To panel when isTouchDevice()
+// returns true. Mirrors the actual on-screen control layout so the
+// player can recognise what they're looking at.
+const TOUCH_CONTROLS: [string, string][] = [
+  ["LEFT STICK", "Move (push far to sprint)"],
+  ["RIGHT SIDE", "Drag to aim / look"],
+  ["FIRE", "Right-side trigger button"],
+  ["ADS", "Aim Down Sights / Scope"],
+  ["RELOAD", "Reload (circular arrow)"],
+  ["WEAPONS", "Swap weapon / weapon rack"],
+  ["PAUSE", "Top-right pause button"],
+  ["JUMP", "Up-chevron button (right side)"],
+];
+
 function HowToPanel({ onBack }: { onBack: () => void }) {
+  const touch = isTouchDevice();
+  const controlsList = touch ? TOUCH_CONTROLS : CONTROLS;
   return (
     <Panel title="FIELD MANUAL" wide>
       {/* hostile dossier */}
-      <div className="clip-btn mb-6 flex items-center gap-4 border border-[#1e2831] bg-[#0b1016]/80 p-3">
+      <div className="clip-btn mb-6 flex flex-col items-center gap-3 border border-[#1e2831] bg-[#0b1016]/80 p-3 sm:flex-row sm:gap-4">
         <img
           src={soldierUrl}
           alt="Hostile combatant reference"
-          className="h-24 w-40 object-cover opacity-90"
+          className="h-20 w-32 object-cover opacity-90 sm:h-24 sm:w-40"
           style={{ objectPosition: "center 30%" }}
         />
         <div>
@@ -699,16 +723,17 @@ function HowToPanel({ onBack }: { onBack: () => void }) {
           </div>
         </div>
       </div>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 md:gap-6">
         <div>
           <div className="mb-3 flex items-center gap-2 text-xs tracking-[0.25em] text-[#e8b545]">
-            <Keyboard size={14} /> CONTROLS
+            {touch ? <Crosshair size={14} /> : <Keyboard size={14} />}
+            {touch ? "TOUCH CONTROLS" : "CONTROLS"}
           </div>
           <div className="space-y-1.5">
-            {CONTROLS.map(([k, v]) => (
-              <div key={k} className="flex items-center justify-between gap-4 border-b border-[#17202a] py-1.5 text-xs">
-                <span className="font-mono2 text-[#e8b545]">{k}</span>
-                <span className="text-[#aebdcb]">{v}</span>
+            {controlsList.map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between gap-3 border-b border-[#17202a] py-1.5 text-xs">
+                <span className="font-mono2 shrink-0 text-[#e8b545]">{k}</span>
+                <span className="text-right text-[#aebdcb]">{v}</span>
               </div>
             ))}
           </div>
@@ -778,6 +803,46 @@ export default function Menus() {
       }),
     []
   );
+
+  // ── Android hardware back button routing ──
+  // Pushes a handler onto the platform's back-button stack that
+  // navigates back through the screen hierarchy the same way the
+  // in-game ESC key does:
+  //   submenu (settings/crosshair/loadout/howto/leaderboard) → menu
+  //   paused → resume
+  //   playing → paused
+  //   menu → "press back again to exit"
+  useEffect(() => {
+    const off = onAndroidBack(() => {
+      const s = currentScreenRef.current;
+      // If a username prompt is open, close that first
+      if (prompt) {
+        setPrompt(null);
+        return true;
+      }
+      if (s === "settings" || s === "crosshair" || s === "howto" ||
+          s === "loadout" || s === "leaderboard") {
+        bus.emit("screen", settingsFrom === "paused" ? "paused" : "menu");
+        return true;
+      }
+      if (s === "paused") {
+        cmd((g) => g.resume())();
+        return true;
+      }
+      if (s === "playing") {
+        cmd((g) => g.pause())();
+        return true;
+      }
+      if (s === "gameover") {
+        bus.emit("screen", "menu");
+        return true;
+      }
+      // On the main menu, return false so the platform's "press back
+      // again to exit" double-press pattern takes over.
+      return false;
+    });
+    return off;
+  }, [prompt, settingsFrom]);
 
   if (screen === "playing") return null;
 

@@ -87,6 +87,19 @@ export default function Hud() {
     []
   );
 
+  // generic toast — used by the Android back-button handler to show
+  // "Press back again to exit" without needing its own UI hook.
+  const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
+  useEffect(
+    () =>
+      bus.on("toast", (p: { text: string; duration?: number }) => {
+        const id = Date.now();
+        setToast({ id, text: p.text });
+        window.setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), p.duration ?? 2200);
+      }),
+    []
+  );
+
   // damage vignette + chromatic aberration
   const [dmg, setDmg] = useState(0);
   const [chroma, setChroma] = useState(0);
@@ -373,6 +386,18 @@ export default function Hud() {
           <div className="text-[9px] tracking-[0.3em] text-[#ff8a5a]">ADAPTIVE QUALITY</div>
           <div className="text-[11px] font-semibold tracking-wide text-white">
             Reduced to {qualityToast.tier} for performance
+          </div>
+        </div>
+      )}
+
+      {/* ── generic toast (e.g. Android back-to-exit hint) ── */}
+      {toast && (
+        <div
+          key={toast.id}
+          className="feed-item absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 clip-btn border border-[#e8b545]/70 bg-[#1c1607]/90 px-6 py-3 text-center"
+        >
+          <div className="text-sm font-semibold tracking-wide text-white">
+            {toast.text}
           </div>
         </div>
       )}

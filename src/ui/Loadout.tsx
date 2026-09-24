@@ -151,7 +151,12 @@ export default function Loadout({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-[#05070b]">
-      <div className="menu-grid opacity-40" />
+      {/* Decorative grid background — pointer-events:none so it can't
+          swallow taps meant for the option panel below. (This was the
+          root cause of the "buttons don't respond to touch" bug: the
+          grid is position:absolute inset:0 and was intercepting every
+          tap on the options panel.) */}
+      <div className="menu-grid pointer-events-none opacity-40" />
 
       {/* ── header ── */}
       <div className="relative flex shrink-0 items-center gap-4 border-b border-[#1e2831] px-5 py-3">
@@ -193,13 +198,17 @@ export default function Loadout({ onBack }: { onBack: () => void }) {
           ))}
         </div>
 
-        {/* ── 3D preview ── */}
-        <div className="relative min-h-[220px] flex-1 lg:min-h-0">
+        {/* ── 3D preview ──
+            On phones the preview gets a smaller min-height so the bottom
+            options panel can show its tabs and items without being
+            clipped off-screen. On lg+ the panel sits beside the preview
+            and we let the preview fill the full height. */}
+        <div className="relative min-h-[140px] flex-1 lg:min-h-0">
           <div ref={mountRef} className="absolute inset-0" />
           {/* Studio Edition: rotating accent ring around the 3D preview */}
-          <div className="fx-rotate-ring" />
-          <div className="pointer-events-none absolute left-0 top-0 p-4">
-            <div className="font-display text-lg tracking-[0.1em] text-white">
+          <div className="fx-rotate-ring pointer-events-none" />
+          <div className="pointer-events-none absolute left-0 top-0 p-3 lg:p-4">
+            <div className="font-display text-base tracking-[0.1em] text-white lg:text-lg">
               {tab === "character" ? "OPERATOR GEAR" : WEAPONS[weapon].name}
             </div>
             <div className="text-[10px] tracking-[0.25em] text-[#e8b545]">
@@ -208,19 +217,19 @@ export default function Loadout({ onBack }: { onBack: () => void }) {
                 : (SKINS.find((s) => s.id === wl.skin) ?? SKINS[0]).name.toUpperCase()}
             </div>
             {WEAPONS[weapon].blurb && (
-              <div className="mt-1 max-w-[260px] text-[10px] leading-relaxed text-[#647489]">
+              <div className="mt-1 hidden max-w-[260px] text-[10px] leading-relaxed text-[#647489] lg:block">
                 {WEAPONS[weapon].blurb}
               </div>
             )}
           </div>
-          <div className="pointer-events-none absolute bottom-3 left-0 w-full text-center text-[9px] tracking-[0.28em] text-[#4b5a6b]">
+          <div className="pointer-events-none absolute bottom-2 left-0 w-full text-center text-[9px] tracking-[0.2em] text-[#4b5a6b] lg:tracking-[0.28em]">
             DRAG TO ROTATE · SCROLL TO ZOOM
           </div>
           <button
             type="button"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); click(); previewRef.current?.resetView(); }}
-            className="clip-btn absolute right-3 top-3 border border-[#2c3641] bg-[#0b1016]/80 px-2.5 py-1.5 text-[9px] tracking-[0.15em] text-[#8fa8bf] hover:text-white"
+            className="clip-btn absolute right-3 top-3 z-10 border border-[#2c3641] bg-[#0b1016]/80 px-2.5 py-1.5 text-[9px] tracking-[0.15em] text-[#8fa8bf] hover:text-white"
           >
             RESET VIEW
           </button>
