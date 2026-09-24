@@ -85,7 +85,28 @@ export class PostFX {
     // tear down any previous composer
     this.dispose();
 
-    if (!this.config.enabled) return;
+    if (!this.config.enabled) {
+      // ── no post-processing path ──
+      // Restore the renderer's built-in tone mapping so the scene
+      // renders correctly when the composer isn't active.
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 1.3;
+      this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+      return;
+    }
+
+    // ── post-processing path ──
+    // CRITICAL: when EffectComposer is active, the renderer's own
+    // tone mapping must be DISABLED, otherwise RenderPass renders the
+    // scene with ACES tone mapping into the composer's render target,
+    // and then OutputPass applies ACES tone mapping AGAIN on the way
+    // out — the result is the dark, blown-out look players were seeing
+    // on HIGH and STUDIO tiers.
+    //
+    // The composer's render targets are LINEAR; OutputPass handles the
+    // LINEAR→sRGB conversion AND the tone mapping in its own shader.
+    this.renderer.toneMapping = THREE.NoToneMapping;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // Half-resolution render target on mobile studio for fill-rate, full on desktop high.
     // studio on native → half res
@@ -105,24 +126,28 @@ export class PostFX {
 
     if (this.config.bloom) {
       // Three.js r185 BloomPass takes (strength, kernelSize, sigma).
-      // Older versions took a Vector2 + 4 args; we use the new API.
-      const kernelSize = isNative ? 16 : 25;
+      // Lower strength + higher threshold = bloom only on genuinely
+      // bright pixels (muzzle flash, lamp filaments, neon accents),
+      // not on the whole screen which makes everything look hazy.
+      const kernelSize = isNative ? 8 : 16;
       this.bloomPass = new BloomPass(
-        this.config.bloomStrength,
+        0.35,        // strength — gentle, doesn't wash out
         kernelSize,
-        4.0,
+        3.0,
       );
       this.composer.addPass(this.bloomPass);
     }
 
     if (this.config.grain) {
-      this.filmPass = new FilmPass(this.config.grainIntensity, false);
+      // Very subtle grain — FilmPass's intensity is multiplied, so
+      // 0.18 reads as a gentle shimmer rather than a TV-static overlay.
+      this.filmPass = new FilmPass(0.15, false);
       this.composer.addPass(this.filmPass);
     }
 
     // OutputPass applies ACES filmic tone mapping + sRGB colour space.
-    // This supersedes the renderer's built-in tone mapping while the
-    // composer is active — make sure they don't double-apply.
+    // This is the ONLY place tone mapping happens now — see the note
+    // above about disabling renderer.toneMapping when the composer is on.
     this.outputPass = new OutputPass();
     this.composer.addPass(this.outputPass);
   }
@@ -156,6 +181,14 @@ export class PostFX {
     if (this.outputPass) { this.outputPass.dispose(); this.outputPass = null; }
     if (this.composer) { this.composer.dispose(); this.composer = null; }
     this.renderPass = null;
+    // If we previously disabled the renderer's tone mapping for the
+    // composer, restore it so a subsequent direct-render path (when
+    // the player drops to low/medium) doesn't render flat LINEAR.
+    if (this.config.enabled) {
+      this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      this.renderer.toneMappingExposure = 1.3;
+      this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    }
   }
 }
 

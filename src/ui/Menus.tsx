@@ -142,7 +142,11 @@ function TacButton({
         onClick();
       }}
       onMouseEnter={hover}
-      className={`btn-tac clip-btn group flex w-64 items-center gap-3 px-6 py-3 text-sm ${danger ? "danger" : ""}`}
+      // On phones we use a 2-col grid (w-full). On >=sm breakpoint we
+      // fall back to the fixed w-56 stack. The transition is smooth
+      // because both layouts put the same button content.
+      className={`btn-tac clip-btn group flex items-center gap-3 px-3 lg:px-4 py-2.5 text-sm w-full lg:w-56 justify-start ${danger ? "danger" : ""}`}
+      style={{ minHeight: 44 }}
     >
       <span className="text-[#e8b545] transition-colors group-hover:text-[#0b0e12]">{icon}</span>
       {label}
@@ -890,21 +894,28 @@ export default function Menus() {
             animation: "menuBreathe 5.5s ease-in-out infinite",
           }}
         />
-        <div className="relative flex h-full flex-col items-center justify-center gap-10 px-6">
+        {/* gap-10 (40px) on desktop → gap-4 (16px) on phones so all six
+            menu buttons + title + best-stats fit on a single screen. */}
+        <div className="relative flex h-full flex-col items-center justify-center gap-4 lg:gap-10 px-4 lg:px-6">
           <div className="rise-in text-center">
-            <div className="mb-3 flex items-center justify-center gap-3 text-[11px] tracking-[0.5em] text-[#8fa8bf]">
-              <span className="h-px w-14 bg-[#8fa8bf]/40" />
+            <div className="mb-2 lg:mb-3 flex items-center justify-center gap-2 lg:gap-3 text-[10px] lg:text-[11px] tracking-[0.3em] lg:tracking-[0.5em] text-[#8fa8bf]">
+              <span className="h-px w-8 lg:w-14 bg-[#8fa8bf]/40" />
               {tr("tagline")}
-              <span className="h-px w-14 bg-[#8fa8bf]/40" />
+              <span className="h-px w-8 lg:w-14 bg-[#8fa8bf]/40" />
             </div>
-            <h1 className="font-display title-glitch text-6xl text-white md:text-8xl">
+            <h1 className="font-display title-glitch text-5xl lg:text-6xl text-white md:text-8xl" style={{ lineHeight: 1.05 }}>
               <span className="fx-holographic">SHADOW</span><span className="text-[#e8b545]">STRIKE</span>
             </h1>
-            <p className="mt-3 text-xs tracking-[0.3em] text-[#7c8ea1]">
+            <p className="mt-2 lg:mt-3 text-[10px] lg:text-xs tracking-[0.2em] lg:tracking-[0.3em] text-[#7c8ea1]">
               {tr("subtagline")}
             </p>
           </div>
-          <div className="rise-in flex flex-col gap-3" style={{ animationDelay: "0.12s" }}>
+          {/* On phones (<1024px landscape), render menu buttons as a 2-column
+              grid so all 6 fit on screen alongside the title. On lg+ (tablets,
+              desktops) keep them stacked full-width for the tactical look.
+              We use lg: rather than md: (768) because md is exactly the
+              landscape width of large phones (Galaxy Note, etc.). */}
+          <div className="rise-in grid grid-cols-2 lg:flex lg:flex-col gap-2 lg:gap-3 justify-items-stretch" style={{ animationDelay: "0.12s" }}>
             <TacButton
               label={tr("play")}
               icon={<Play size={16} />}
@@ -943,7 +954,7 @@ export default function Menus() {
             <TacButton label={tr("howToPlay")} icon={<BookOpen size={16} />} onClick={() => bus.emit("screen", "howto")} />
           </div>
           {best.score > 0 && (
-            <div className="rise-in flex items-center gap-6 border border-[#1e2831] bg-[#080c11]/80 px-6 py-3 text-xs tracking-[0.2em] text-[#8fa8bf]" style={{ animationDelay: "0.2s" }}>
+            <div className="rise-in flex flex-wrap items-center justify-center gap-3 lg:gap-6 border border-[#1e2831] bg-[#080c11]/80 px-4 py-2 lg:px-6 lg:py-3 text-[10px] lg:text-xs tracking-[0.15em] lg:tracking-[0.2em] text-[#8fa8bf]" style={{ animationDelay: "0.2s" }}>
               <span className="flex items-center gap-2"><Trophy size={13} className="text-[#e8b545]" /> BEST {best.score.toLocaleString()}</span>
               <span className="flex items-center gap-2"><Waves size={13} className="text-[#8fa8bf]" /> WAVE {best.wave}</span>
               <span className="flex items-center gap-2"><Skull size={13} className="text-[#ff6a5a]" /> {best.kills} KILLS</span>

@@ -483,17 +483,20 @@ export class Game {
     let prCap: number;
     let prMul: number;
     if (q === "studio") {
-      prCap = native ? 1.5 : 2.0;       // studio: push pixels, but never above 2x even on web
+      // Studio: full post-processing is expensive, so we DON'T bump
+      // the pixel ratio above the leaner tiers — keeping DPR around 1
+      // on native lets the bloom + AO budget actually fit in the frame.
+      prCap = native ? 1.0 : 1.75;
       prMul = 1.0;
     } else if (q === "high") {
-      prCap = native ? 1.25 : 1.75;
+      prCap = native ? 1.0 : 1.75;
       prMul = 1.0;
     } else if (q === "medium") {
-      prCap = native ? 1.0 : 1.25;
+      prCap = native ? 0.85 : 1.25;
       prMul = 1.0;
     } else { // low
-      prCap = native ? 0.7 : 1.0;
-      prMul = 0.6;
+      prCap = native ? 0.6 : 1.0;
+      prMul = 0.7;
     }
     this.renderer.setPixelRatio(Math.min(dpr, prCap) * prMul);
 
