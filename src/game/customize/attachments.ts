@@ -392,6 +392,216 @@ export const ATTACHMENTS: AttachmentDef[] = [
     mods: { moveSpeedMul: 1.1, adsSpeedMul: 1.32, recoilMul: 1.45, spreadHipMul: 1.2 },
     unlock: { kind: "headshots", value: 40 },
   },
+
+  // ═════════════════════════════════════════════════════════════
+  //  EXPANDED ATTACHMENT CATALOG — Studio Edition
+  //  Each new entry below offers a fresh trade-off so the loadout
+  //  screen has more genuine *choices* per slot, not just sidegrades.
+  // ═════════════════════════════════════════════════════════════
+
+  // ── SIGHTS (expanded) ─────────────────────────────────────
+  {
+    id: "sight_prism", slot: "sight", name: "Prism 2×",
+    desc: "Compact prismatic 2× with a wide eye-box. Best all-rounder optic.",
+    mods: { zoomMul: 1.7, adsSpeedMul: 0.92, spreadAdsMul: 0.78 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      g.add(bx(m.dark, 0.052 * s, 0.012 * s, 0.110 * s, 0, 0.004 * s, 0));
+      g.add(cy(m.accent, 0.030 * s, 0.030 * s, 0.014 * s, 0, 0.034 * s, -0.028 * s, 12, Math.PI / 2));
+      g.add(cy(m.accent, 0.030 * s, 0.030 * s, 0.014 * s, 0, 0.034 * s, 0.040 * s, 12, Math.PI / 2));
+      g.add(cy(m.body, 0.022 * s, 0.026 * s, 0.090 * s, 0, 0.034 * s, 0.006 * s, 12, Math.PI / 2));
+      const lens = cy(m.glass, 0.024 * s, 0.024 * s, 0.004 * s, 0, 0.034 * s, -0.040 * s, 14, Math.PI / 2);
+      g.add(lens);
+      // amber-tinted backup fibre
+      const fibre = new THREE.Mesh(
+        new THREE.BoxGeometry(0.004 * s, 0.004 * s, 0.075 * s),
+        new THREE.MeshStandardMaterial({ color: 0xff8a1a, emissive: 0xff8a1a, emissiveIntensity: 2.4 })
+      );
+      fibre.position.set(0.026 * s, 0.034 * s, 0.006 * s);
+      g.add(fibre);
+      return g;
+    },
+    unlock: { kind: "kills", value: 90 },
+  },
+  {
+    id: "sight_reflex_dual", slot: "sight", name: "Twin Reflex",
+    desc: "Side-by-side reflex lenses for split-second transition between eyes.",
+    mods: { zoomMul: 1.3, adsSpeedMul: 1.18, spreadAdsMul: 0.88, spreadHipMul: 0.95 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      g.add(bx(m.dark, 0.068 * s, 0.010 * s, 0.062 * s, 0, 0.004 * s, 0));
+      for (const sx of [-1, 1]) {
+        const lens = new THREE.Mesh(new THREE.BoxGeometry(0.026 * s, 0.030 * s, 0.003 * s), m.glass);
+        lens.position.set(sx * 0.018 * s, 0.026 * s, -0.014 * s);
+        lens.rotation.x = 0.18;
+        g.add(lens);
+        g.add(bx(m.body, 0.007 * s, 0.038 * s, 0.010 * s, sx * 0.018 * s, 0.026 * s, 0.020 * s));
+      }
+      // two-tone reticle: red and green
+      const dotColors = [0xff2a1a, 0x35ff9e];
+      for (let i = 0; i < 2; i++) {
+        const dot = new THREE.Mesh(
+          new THREE.SphereGeometry(0.0035 * s, 8, 6),
+          new THREE.MeshStandardMaterial({ color: dotColors[i], emissive: dotColors[i], emissiveIntensity: 4.5 })
+        );
+        dot.position.set((i === 0 ? -1 : 1) * 0.018 * s, 0.026 * s, -0.016 * s);
+        g.add(dot);
+      }
+      return g;
+    },
+    unlock: { kind: "wave", value: 6 },
+  },
+
+  // ── BARRELS (expanded) ────────────────────────────────────
+  {
+    id: "barrel_compensator", slot: "barrel", name: "Compensator",
+    desc: "Vents gas upward. Tames vertical recoil only, no spread penalty.",
+    mods: { recoilMul: 0.78, spreadHipMul: 0.96 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      g.add(cy(m.accent, 0.026 * s, 0.030 * s, 0.06 * s, 0, 0, -0.025 * s, 12, Math.PI / 2));
+      // top vents
+      for (let i = 0; i < 3; i++) {
+        const vent = bx(m.dark, 0.014 * s, 0.004 * s, 0.006 * s, 0, 0.020 * s, -0.014 * s - i * 0.014 * s);
+        g.add(vent);
+      }
+      return g;
+    },
+    unlock: { kind: "kills", value: 50 },
+  },
+  {
+    id: "barrel_carbine", slot: "barrel", name: "Carbine Barrel",
+    desc: "Shortened barrel. Snappy handling, sacrifices range.",
+    mods: { adsSpeedMul: 1.16, moveSpeedMul: 1.03, falloffStartMul: 0.82, falloffEndMul: 0.85, spreadAdsMul: 1.06 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      g.add(cy(m.accent, 0.020 * s, 0.022 * s, 0.110 * s, 0, 0, -0.05 * s, 12, Math.PI / 2));
+      g.add(cy(m.dark, 0.030 * s, 0.028 * s, 0.018 * s, 0, 0, -0.105 * s, 12, Math.PI / 2));
+      return g;
+    },
+  },
+  {
+    id: "barrel_flashhider", slot: "barrel", name: "Flash Hider",
+    desc: "Pronged flash hider. Kills muzzle flash signature, no other effect.",
+    mods: { velocityMul: 1.0 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      g.add(cy(m.dark, 0.028 * s, 0.032 * s, 0.07 * s, 0, 0, -0.04 * s, 12, Math.PI / 2));
+      // three prongs
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const prong = bx(m.accent, 0.005 * s, 0.020 * s, 0.006 * s,
+          Math.cos(a) * 0.012 * s, Math.sin(a) * 0.012 * s, -0.075 * s);
+        prong.rotation.z = a;
+        g.add(prong);
+      }
+      return g;
+    },
+    unlock: { kind: "wave", value: 2 },
+  },
+
+  // ── MAGAZINES (expanded) ─────────────────────────────────
+  {
+    id: "mag_speedload", slot: "magazine", name: "Speed Loader",
+    desc: "Tuned spring and follower. Magazine dumps in one motion.",
+    mods: { magMul: 0.92, reloadMul: 0.50 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      g.add(bx(m.accent, 0.048 * s, 0.07 * s, 0.078 * s, 0, -0.035 * s, 0));
+      // pull tab
+      g.add(bx(m.dark, 0.030 * s, 0.014 * s, 0.020 * s, 0, -0.076 * s, 0));
+      // high-vis stripe
+      g.add(bx(new THREE.MeshStandardMaterial({ color: 0xffae00, emissive: 0xffae00, emissiveIntensity: 0.6 }),
+        0.050 * s, 0.006 * s, 0.080 * s, 0, -0.012 * s, 0));
+      return g;
+    },
+    unlock: { kind: "score", value: 4000 },
+  },
+  {
+    id: "mag_armor_piercing", slot: "magazine", name: "AP Magazine",
+    desc: "Loaded with armour-piercing rounds. +15% damage, slower velocity.",
+    mods: { damageMul: 1.15, velocityMul: 0.92, magMul: 0.95 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      g.add(bx(m.dark, 0.052 * s, 0.082 * s, 0.082 * s, 0, -0.042 * s, 0));
+      // black-tipped AP rounds visible at the top
+      g.add(bx(new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.6, roughness: 0.4 }),
+        0.044 * s, 0.012 * s, 0.074 * s, 0, -0.004 * s, 0));
+      // red warning stripe
+      g.add(bx(new THREE.MeshStandardMaterial({ color: 0xc41818, emissive: 0xc41818, emissiveIntensity: 0.5 }),
+        0.054 * s, 0.004 * s, 0.080 * s, 0, -0.070 * s, 0));
+      return g;
+    },
+    unlock: { kind: "kills", value: 200 },
+  },
+
+  // ── GRIPS (expanded) ─────────────────────────────────────
+  {
+    id: "grip_laser", slot: "grip", name: "Laser Grip",
+    desc: "Integrated visible laser. Improves hip-fire accuracy dramatically.",
+    mods: { spreadHipMul: 0.72, recoilMul: 0.94 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      g.add(bx(m.dark, 0.028 * s, 0.078 * s, 0.030 * s, 0, -0.044 * s, 0));
+      g.add(bx(m.accent, 0.034 * s, 0.012 * s, 0.034 * s, 0, -0.088 * s, 0));
+      // laser emitter
+      const laser = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.003 * s, 0.003 * s, 0.012 * s, 8),
+        new THREE.MeshStandardMaterial({ color: 0xff2a1a, emissive: 0xff2a1a, emissiveIntensity: 3.5 })
+      );
+      laser.position.set(0, -0.092 * s, 0);
+      g.add(laser);
+      return g;
+    },
+    unlock: { kind: "wave", value: 4 },
+  },
+  {
+    id: "grip_handstop", slot: "grip", name: "Hand Stop",
+    desc: "Minimal hand-stop. Lightest possible front grip, no recoil penalty.",
+    mods: { adsSpeedMul: 1.10, spreadHipMul: 0.94, moveSpeedMul: 1.02 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      g.add(bx(m.accent, 0.024 * s, 0.030 * s, 0.030 * s, 0, -0.018 * s, 0));
+      g.add(bx(m.dark, 0.030 * s, 0.010 * s, 0.036 * s, 0, -0.036 * s, 0));
+      return g;
+    },
+    unlock: { kind: "kills", value: 25 },
+  },
+
+  // ── STOCKS (expanded) ────────────────────────────────────
+  {
+    id: "stock_collapsible", slot: "stock", name: "Collapsible Stock",
+    desc: "Six-position sliding stock. Tune stability vs mobility on the fly.",
+    mods: { recoilMul: 0.92, adsSpeedMul: 1.08, moveSpeedMul: 1.02 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      // two sliding rails
+      for (const sx of [-1, 1]) {
+        g.add(bx(m.accent, 0.008 * s, 0.014 * s, 0.13 * s, sx * 0.018 * s, 0.018 * s, 0.055 * s));
+      }
+      // sliding stock body
+      g.add(bx(m.dark, 0.044 * s, 0.058 * s, 0.040 * s, 0, 0.014 * s, 0.090 * s));
+      // buttpad
+      g.add(bx(m.accent, 0.050 * s, 0.026 * s, 0.014 * s, 0, -0.012 * s, 0.110 * s));
+      return g;
+    },
+    unlock: { kind: "kills", value: 35 },
+  },
+  {
+    id: "stock_cheekrest", slot: "stock", name: "Cheek Riser",
+    desc: "Raised cheek weld. Maximum stability, heavier handling.",
+    mods: { recoilMul: 0.78, spreadAdsMul: 0.74, adsSpeedMul: 0.94, moveSpeedMul: 0.97 },
+    build: (m, s) => {
+      const g = new THREE.Group();
+      g.add(bx(m.dark, 0.052 * s, 0.080 * s, 0.094 * s, 0, 0.020 * s, 0.058 * s));
+      // raised cheek pad
+      g.add(bx(m.accent, 0.060 * s, 0.030 * s, 0.062 * s, 0, 0.052 * s, 0.058 * s));
+      // buttpad
+      g.add(bx(m.dark, 0.060 * s, 0.030 * s, 0.016 * s, 0, -0.020 * s, 0.100 * s));
+      return g;
+    },
+    unlock: { kind: "score", value: 9000 },
+  },
 ];
 
 export const ATTACH_BY_ID = new Map(ATTACHMENTS.map((a) => [a.id, a]));

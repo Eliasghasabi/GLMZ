@@ -196,6 +196,8 @@ export default function Loadout({ onBack }: { onBack: () => void }) {
         {/* ── 3D preview ── */}
         <div className="relative min-h-[220px] flex-1 lg:min-h-0">
           <div ref={mountRef} className="absolute inset-0" />
+          {/* Studio Edition: rotating accent ring around the 3D preview */}
+          <div className="fx-rotate-ring" />
           <div className="pointer-events-none absolute left-0 top-0 p-4">
             <div className="font-display text-lg tracking-[0.1em] text-white">
               {tab === "character" ? "OPERATOR GEAR" : WEAPONS[weapon].name}

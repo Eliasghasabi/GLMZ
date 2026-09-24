@@ -11,6 +11,7 @@ export type ScreenName =
   | "gameover"
   | "howto"
   | "settings"
+  | "crosshair"
   | "loadout"
   | "leaderboard";
 

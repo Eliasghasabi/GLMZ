@@ -6,8 +6,11 @@
 import { useEffect, useState } from "react";
 import { bus, type HudData, hud as initialHud, type BannerData, type KillConfirmData } from "../store";
 import { WEAPONS, WEAPON_ORDER } from "../game/weapons";
-import { Heart, Shield, Skull, Radar, Trophy } from "lucide-react";
+import { Heart, Shield, Skull, Radar, Trophy, Flame, Zap, Star } from "lucide-react";
 import { isTouchDevice } from "./TouchControls";
+import {
+  getCrosshair, onCrosshairChange, CROSSHAIR_COLOR_HEX, type CrosshairConfig,
+} from "../game/customize/crosshair";
 
 function useBus<T>(event: string, initial: T): T {
   const [v, setV] = useState<T>(initial);
@@ -71,13 +74,18 @@ export default function Hud() {
     []
   );
 
-  // damage vignette
+  // damage vignette + chromatic aberration
   const [dmg, setDmg] = useState(0);
+  const [chroma, setChroma] = useState(0);
   useEffect(
     () =>
       bus.on("damage", () => {
         setDmg(1);
-        requestAnimationFrame(() => requestAnimationFrame(() => setDmg(0)));
+        setChroma(1);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          setDmg(0);
+          setChroma(0);
+        }));
       }),
     []
   );
@@ -90,6 +98,53 @@ export default function Hud() {
       }),
     []
   );
+
+  // ── KILL STREAK COMBO ──
+  // tracks consecutive kills within a 3.5s window. >=2 triggers a
+  // multikill banner, >=3 activates the edge-glow ring around the HUD.
+  const [combo, setCombo] = useState(0);
+  const [comboTimer, setComboTimer] = useState<number | null>(null);
+  const [killflash, setKillflash] = useState(0);
+  const [multikillBanner, setMultikillBanner] = useState<{ id: number; tier: string; label: string } | null>(null);
+
+  useEffect(() => {
+    const off = bus.on("hit", (p: { kill: boolean; headshot: boolean }) => {
+      if (!p.kill) return;
+      // white flash on every kill
+      setKillflash(1);
+      requestAnimationFrame(() => requestAnimationFrame(() => setKillflash(0)));
+
+      const nextCombo = combo + 1;
+      setCombo(nextCombo);
+
+      // reset combo window
+      if (comboTimer) window.clearTimeout(comboTimer);
+      const t = window.setTimeout(() => {
+        setCombo(0);
+        setComboTimer(null);
+      }, 3500);
+      setComboTimer(t);
+
+      // multikill banners — tiered by streak length
+      const tiers: [number, string, string][] = [
+        [10, "RAMPAGE", "10 KILLS"],
+        [7,  "UNSTOPPABLE", "7 KILLS"],
+        [5,  "KILLING SPREE", "5 KILLS"],
+        [3,  "TRIPLE KILL", "3 KILLS"],
+        [2,  "DOUBLE KILL", "2 KILLS"],
+      ];
+      for (const [n, label, sub] of tiers) {
+        if (nextCombo === n) {
+          setMultikillBanner({ id: Date.now(), tier: label, label: sub });
+          window.setTimeout(() => setMultikillBanner(null), 2400);
+          break;
+        }
+      }
+    });
+    return () => { off(); if (comboTimer) window.clearTimeout(comboTimer); };
+  }, [combo, comboTimer]);
+
+  const onStreak = combo >= 3;
 
   // killfeed
   const [feed, setFeed] = useState<FeedItem[]>([]);
@@ -134,8 +189,53 @@ export default function Hud() {
 
       {/* damage / heal flashes */}
       <div className="fx-damage absolute inset-0" style={{ opacity: dmg }} />
+      <div className="fx-chroma absolute inset-0" style={{ opacity: chroma }} />
       <div className="fx-heal absolute inset-0" style={{ opacity: heal }} />
       {lowHp && <div className="fx-damage lowhp absolute inset-0" />}
+
+      {/* kill flash — single bright frame */}
+      <div className="fx-killflash absolute inset-0" style={{ opacity: killflash }} />
+
+      {/* edge-glow when on a streak */}
+      {onStreak && <div className="fx-edgeglow absolute inset-0" />}
+
+      {/* multi-kill banner — large central flourish */}
+      {multikillBanner && (
+        <div
+          key={multikillBanner.id}
+          className="multikill-banner absolute left-1/2 top-[42%] -translate-x-1/2 text-center"
+        >
+          <div
+            className="font-display text-5xl md:text-6xl"
+            style={{
+              color: combo >= 10 ? "#ff4dff" : combo >= 7 ? "#ff7a14" : "#ffd76a",
+              textShadow: `0 0 28px ${combo >= 10 ? "rgba(255,77,255,0.6)" : combo >= 7 ? "rgba(255,122,20,0.6)" : "rgba(232,181,69,0.6)"}, 0 2px 0 rgba(0,0,0,0.8)`,
+            }}
+          >
+            {multikillBanner.tier}
+          </div>
+          <div className="mt-1 text-xs tracking-[0.4em] text-[#cdd7e2]" style={{ textShadow: "0 0 8px rgba(0,0,0,0.9)" }}>
+            {multikillBanner.label}
+          </div>
+        </div>
+      )}
+
+      {/* combo chip — small counter that ticks up */}
+      {combo >= 2 && (
+        <div className="absolute right-5 top-[110px] flex flex-col items-end">
+          <div key={combo} className="combo-chip flex items-center gap-1.5 border border-[#e8b545] bg-[#1c1607]/85 px-2.5 py-1 clip-btn">
+            <Flame size={11} className="text-[#ff7a14]" />
+            <span className="font-display text-sm tracking-[0.15em] text-[#ffd76a]">{combo}×</span>
+            <span className="text-[9px] tracking-[0.2em] text-[#9fb0c2]">STREAK</span>
+          </div>
+          {combo >= 5 && (
+            <div key={`star-${combo}`} className="combo-chip mt-1 flex items-center gap-1 border border-[#ff7a14] bg-[#2a1408]/85 px-2 py-0.5 clip-btn">
+              <Star size={10} className="text-[#ff7a14]" />
+              <span className="text-[8px] tracking-[0.25em] text-[#ffae6a]">ON FIRE</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* sniper scope */}
       {scoped && (
@@ -156,15 +256,7 @@ export default function Hud() {
       )}
 
       {/* crosshair */}
-      {!scoped && (
-        <div className="xh" style={{ ["--sp" as string]: `${Math.min(46, spread)}px` }}>
-          <div className="tick t" />
-          <div className="tick b" />
-          <div className="tick l" />
-          <div className="tick r" />
-          <div className="dot" />
-        </div>
-      )}
+      {!scoped && <CustomCrosshair spread={spread} />}
 
       {/* ── sniper kill confirm ── */}
       {confirm && (
@@ -361,4 +453,185 @@ export default function Hud() {
       )}
     </div>
   );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  CUSTOM CROSSHAIR
+//  Renders any of the 8 configured reticle styles, in any of the 8
+//  colours, with adjustable gap/thickness/length. Pure CSS — no
+//  canvas, no shaders, so it costs nothing per frame.
+// ─────────────────────────────────────────────────────────────
+
+function CustomCrosshair({ spread }: { spread: number }) {
+  const [cfg, setCfg] = useState<CrosshairConfig>(getCrosshair());
+  useEffect(() => onCrosshairChange(setCfg), []);
+
+  // dynamic gap: crosshair opens as the weapon's hip-spread widens
+  const dynGap = cfg.style === "dynamic"
+    ? cfg.gap + Math.min(28, spread * 0.7)
+    : cfg.gap + Math.min(14, spread * 0.25);
+
+  const color = CROSSHAIR_COLOR_HEX[cfg.color];
+  const outline = `0 0 ${3 + cfg.outline * 4}px rgba(0,0,0,${cfg.outline})`;
+  const shadow = `${outline}, 0 0 1px rgba(0,0,0,1)`;
+  const t = cfg.thickness;
+  const len = cfg.length;
+  const g = dynGap;
+
+  // common wrapper: an absolutely-centred 0×0 box that all ticks hang off
+  const wrap = (children: React.ReactNode) => (
+    <div
+      className="xh"
+      style={{
+        ["--sp" as string]: `${Math.min(46, spread)}px`,
+      }}
+    >
+      {children}
+    </div>
+  );
+
+  switch (cfg.style) {
+    case "dot":
+      return wrap(
+        <span
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            width: t + 1,
+            height: t + 1,
+            transform: "translate(-50%, -50%)",
+            background: color,
+            borderRadius: "9999px",
+            boxShadow: shadow,
+          }}
+        />
+      );
+
+    case "cross":
+      return wrap(
+        <>
+          <span style={{ position: "absolute", left: "50%", top: "50%", width: 1, height: len * 2 + g * 2, transform: `translate(-50%, -50%)`, background: color, boxShadow: shadow }} />
+          <span style={{ position: "absolute", left: "50%", top: "50%", width: len * 2 + g * 2, height: 1, transform: `translate(-50%, -50%)`, background: color, boxShadow: shadow }} />
+        </>
+      );
+
+    case "t-cross":
+      return wrap(
+        <>
+          {/* top */}
+          <span style={{ position: "absolute", left: "50%", top: "50%", width: t, height: len, transform: `translate(-50%, calc(-${g}px - ${len}px))`, background: color, boxShadow: shadow }} />
+          {/* bottom */}
+          <span style={{ position: "absolute", left: "50%", top: "50%", width: t, height: len, transform: `translate(-50%, ${g}px)`, background: color, boxShadow: shadow }} />
+          {/* left only — open right */}
+          <span style={{ position: "absolute", left: "50%", top: "50%", width: len, height: t, transform: `translate(calc(-${g}px - ${len}px), -50%)`, background: color, boxShadow: shadow }} />
+          {cfg.dot && (
+            <span style={{ position: "absolute", left: "50%", top: "50%", width: t + 1, height: t + 1, transform: "translate(-50%, -50%)", background: color, borderRadius: "9999px", boxShadow: shadow }} />
+          )}
+        </>
+      );
+
+    case "circle":
+      return wrap(
+        <>
+          <span
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: g * 2,
+              height: g * 2,
+              transform: "translate(-50%, -50%)",
+              borderRadius: "9999px",
+              border: `${t}px solid ${color}`,
+              boxShadow: shadow,
+            }}
+          />
+          {cfg.dot && (
+            <span style={{ position: "absolute", left: "50%", top: "50%", width: t + 1, height: t + 1, transform: "translate(-50%, -50%)", background: color, borderRadius: "9999px", boxShadow: shadow }} />
+          )}
+        </>
+      );
+
+    case "triangle": {
+      // three inward-pointing chevrons at 120° intervals around the centre
+      const arms: React.ReactNode[] = [];
+      for (let i = 0; i < 3; i++) {
+        const a = (i * Math.PI * 2) / 3 - Math.PI / 2;
+        const cx = Math.cos(a) * (g + 4);
+        const cy = Math.sin(a) * (g + 4);
+        arms.push(
+          <span
+            key={i}
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: len,
+              height: t,
+              transform: `translate(${cx - len / 2}px, ${cy}px) rotate(${a}rad)`,
+              background: color,
+              boxShadow: shadow,
+              transformOrigin: "right center",
+            }}
+          />
+        );
+      }
+      return wrap(<>{arms}</>);
+    }
+
+    case "chevron":
+      return wrap(
+        <>
+          <span
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: len * 1.6,
+              height: t,
+              transform: `translate(-50%, ${g}px) rotate(-26deg)`,
+              background: color,
+              boxShadow: shadow,
+              transformOrigin: "center right",
+            }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: len * 1.6,
+              height: t,
+              transform: `translate(-50%, ${g}px) rotate(26deg)`,
+              background: color,
+              boxShadow: shadow,
+              transformOrigin: "center left",
+            }}
+          />
+          {cfg.dot && (
+            <span style={{ position: "absolute", left: "50%", top: "50%", width: t + 1, height: t + 1, transform: "translate(-50%, -50%)", background: color, borderRadius: "9999px", boxShadow: shadow }} />
+          )}
+        </>
+      );
+
+    case "dynamic":
+    case "default":
+    default:
+      return wrap(
+        <>
+          {/* top */}
+          <span style={{ position: "absolute", left: "50%", top: "50%", width: t, height: len, transform: `translate(-50%, calc(-${g}px - ${len}px))`, background: color, boxShadow: shadow }} />
+          {/* bottom */}
+          <span style={{ position: "absolute", left: "50%", top: "50%", width: t, height: len, transform: `translate(-50%, ${g}px)`, background: color, boxShadow: shadow }} />
+          {/* left */}
+          <span style={{ position: "absolute", left: "50%", top: "50%", width: len, height: t, transform: `translate(calc(-${g}px - ${len}px), -50%)`, background: color, boxShadow: shadow }} />
+          {/* right */}
+          <span style={{ position: "absolute", left: "50%", top: "50%", width: len, height: t, transform: `translate(${g}px, -50%)`, background: color, boxShadow: shadow }} />
+          {cfg.dot && (
+            <span style={{ position: "absolute", left: "50%", top: "50%", width: t + 1, height: t + 1, transform: "translate(-50%, -50%)", background: color, borderRadius: "9999px", boxShadow: shadow }} />
+          )}
+        </>
+      );
+  }
 }

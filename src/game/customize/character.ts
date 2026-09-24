@@ -193,6 +193,44 @@ export const GLOVES: GloveOption[] = [
     metalColor: 0xf0d89a, strapColor: 0x2a2418,
     unlock: { kind: "score", value: 48000 },
   },
+
+  // ── EXPANDED GLOVE CATALOG ─────────────────────────────────
+  {
+    id: "spectre_tactical", name: "Spectre Tactical", tier: "specialist",
+    desc: "Stealth-black nomex with cyan circuit threading. Whisper-quiet.",
+    swatch: ["#0a141a", "#020a0e"],
+    weave: "mesh", color: 0x0a141a, stitch: 0x4d9fff, roughness: 0.78, metalness: 0.08, wear: 0.18,
+    coverage: "full", plating: true, plateColor: 0x020608, plateRough: 0.32,
+    metalColor: 0x4d9fff, strapColor: 0x040810,
+    unlock: { kind: "kills", value: 280 },
+  },
+  {
+    id: "neon_glove", name: "Neon Operator", tier: "elite",
+    desc: "Synthetic shell with bioluminescent piping. Glows on contact.",
+    swatch: ["#0a1a14", "#1ad3a8"],
+    weave: "kevlar", color: 0x0a1a14, stitch: 0x1ad3a8, roughness: 0.5, metalness: 0.22, wear: 0.14,
+    coverage: "fingerless", plating: true, plateColor: 0x082018, plateRough: 0.18,
+    metalColor: 0x1ad3a8, strapColor: 0x0a1a14,
+    unlock: { kind: "score", value: 32000 },
+  },
+  {
+    id: "bloodmoon_gauntlet", name: "Bloodmoon Gauntlet", tier: "elite",
+    desc: "Crimson leather under blood-red plate. Forged in shadow.",
+    swatch: ["#8a0a0a", "#1a0202"],
+    weave: "leather", color: 0x6a0808, stitch: 0xc41818, roughness: 0.42, metalness: 0.18, wear: 0.22,
+    coverage: "full", plating: true, plateColor: 0x1a0202, plateRough: 0.16,
+    metalColor: 0xff3838, strapColor: 0x2a0606,
+    unlock: { kind: "headshots", value: 90 },
+  },
+  {
+    id: "void_phantom", name: "Void Phantom", tier: "elite",
+    desc: "Deep-space composite with embedded starfield. Bends light around the fist.",
+    swatch: ["#5a2eff", "#050108"],
+    weave: "mesh", color: 0x050108, stitch: 0x8a5aff, roughness: 0.36, metalness: 0.32, wear: 0.06,
+    coverage: "full", plating: true, plateColor: 0x0a0420, plateRough: 0.22,
+    metalColor: 0x5a2eff, strapColor: 0x050108,
+    unlock: { kind: "score", value: 58000 },
+  },
 ];
 
 // ═════════════════════════════════════════════════════════════
@@ -238,6 +276,26 @@ export const SLEEVES: SleeveOption[] = [
     desc: "Powered compression weave with conductive threading.",
     weave: "mesh", color: 0x1b2230, stitch: 0x2ad39a, roughness: 0.6, wear: 0.1,
     unlock: { kind: "score", value: 30000 },
+  },
+
+  // ── EXPANDED SLEEVE CATALOG ────────────────────────────────
+  {
+    id: "voidweave", name: "Voidweave", tier: "elite", swatch: ["#050108", "#5a2eff"],
+    desc: "Deep-space fabric with embedded starfield. Hums with latent energy.",
+    weave: "mesh", color: 0x050108, stitch: 0x5a2eff, roughness: 0.42, wear: 0.05,
+    unlock: { kind: "kills", value: 380 },
+  },
+  {
+    id: "spectral", name: "Spectral Overlay", tier: "specialist", swatch: ["#0a141a", "#4d9fff"],
+    desc: "Phase-shifting fabric that flickers between visible and not.",
+    weave: "mesh", color: 0x0a141a, stitch: 0x4d9fff, roughness: 0.5, wear: 0.12,
+    unlock: { kind: "wave", value: 8 },
+  },
+  {
+    id: "inferno", name: "Inferno Sleeve", tier: "elite", swatch: ["#1a0606", "#ff5a12"],
+    desc: "Heat-resistant weave threaded with molten accents.",
+    weave: "kevlar", color: 0x1a0606, stitch: 0xff5a12, roughness: 0.56, wear: 0.18,
+    unlock: { kind: "headshots", value: 80 },
   },
 ];
 
@@ -335,6 +393,89 @@ export const WRISTS: WristOption[] = [
       return g;
     },
     unlock: { kind: "score", value: 34000 },
+  },
+
+  // ── EXPANDED WRIST GEAR CATALOG ────────────────────────────
+  {
+    id: "tactical_laser", name: "Tac Laser", tier: "specialist",
+    desc: "Visible tactical laser. Improves hip-fire accuracy at the wrist.",
+    build: (m) => {
+      const g = new THREE.Group();
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.030 * S, 0.006 * S, 6, 14), m.strap);
+      band.rotation.y = Math.PI / 2;
+      g.add(band);
+      // laser housing
+      const housing = new THREE.Mesh(new THREE.BoxGeometry(0.014 * S, 0.022 * S, 0.020 * S), m.metal);
+      housing.position.set(0.028 * S, -0.006 * S, 0);
+      g.add(housing);
+      // emitter (red laser)
+      const emitter = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.0025 * S, 0.0025 * S, 0.008 * S, 8),
+        new THREE.MeshStandardMaterial({ color: 0xff2a1a, emissive: 0xff2a1a, emissiveIntensity: 4.5 })
+      );
+      emitter.rotation.z = Math.PI / 2;
+      emitter.position.set(0.040 * S, -0.006 * S, 0);
+      g.add(emitter);
+      return g;
+    },
+    unlock: { kind: "wave", value: 6 },
+  },
+  {
+    id: "holo_band", name: "Holo Band", tier: "elite",
+    desc: "Holographic display cuff. Real-time mission data projected above the wrist.",
+    build: (m) => {
+      const g = new THREE.Group();
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.030 * S, 0.005 * S, 6, 14), m.metal);
+      band.rotation.y = Math.PI / 2;
+      g.add(band);
+      // holographic projector arc
+      const arc = new THREE.Mesh(
+        new THREE.TorusGeometry(0.022 * S, 0.0025 * S, 6, 12, Math.PI),
+        new THREE.MeshStandardMaterial({
+          color: 0x1ad3ff, emissive: 0x1ad3ff, emissiveIntensity: 2.2,
+          transparent: true, opacity: 0.85,
+        })
+      );
+      arc.rotation.y = Math.PI / 2;
+      arc.position.x = 0.030 * S;
+      g.add(arc);
+      // floating hologram dot
+      const holo = new THREE.Mesh(
+        new THREE.SphereGeometry(0.005 * S, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0x66e6ff, emissive: 0x66e6ff, emissiveIntensity: 3.0 })
+      );
+      holo.position.set(0.040 * S, 0.014 * S, 0);
+      g.add(holo);
+      return g;
+    },
+    unlock: { kind: "kills", value: 320 },
+  },
+  {
+    id: "void_bracelet", name: "Void Charm", tier: "elite",
+    desc: "Strange amulet from another dimension. Pulses with quiet whispers.",
+    build: (m) => {
+      const g = new THREE.Group();
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.030 * S, 0.005 * S, 6, 14), m.metal);
+      band.rotation.y = Math.PI / 2;
+      g.add(band);
+      // floating amulet
+      const amulet = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(0.013 * S, 0),
+        new THREE.MeshStandardMaterial({ color: 0x050108, emissive: 0x5a2eff, emissiveIntensity: 1.8, roughness: 0.15 })
+      );
+      amulet.position.set(0.034 * S, 0.012 * S, 0);
+      g.add(amulet);
+      // orbiting ring
+      const orbit = new THREE.Mesh(
+        new THREE.TorusGeometry(0.014 * S, 0.0015 * S, 4, 16),
+        new THREE.MeshStandardMaterial({ color: 0x8a5aff, emissive: 0x8a5aff, emissiveIntensity: 2.5 })
+      );
+      orbit.position.set(0.034 * S, 0.012 * S, 0);
+      orbit.rotation.x = Math.PI / 3;
+      g.add(orbit);
+      return g;
+    },
+    unlock: { kind: "score", value: 55000 },
   },
 ];
 
