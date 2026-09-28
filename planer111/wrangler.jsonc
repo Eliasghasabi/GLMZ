@@ -1,0 +1,50 @@
+// StudyFlow — Cloudflare Workers configuration
+// ─────────────────────────────────────────────────
+// This project deploys to Cloudflare Workers via @opennextjs/cloudflare.
+// Steps (see README.md for the full walkthrough):
+//
+//   npm install
+//   npx opennextjs-cloudflare build      # produces .open-next/worker.js
+//   wrangler d1 create studyflow-db      # copy database_id below
+//   wrangler d1 migrations apply studyflow-db --remote
+//   wrangler deploy
+//
+// In production the DB client reads the D1 binding through the Prisma D1
+// driver adapter — see the "Cloudflare D1" section in README.md.
+
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "studyflow",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-03-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // ── Cloudflare D1 (primary database) ──
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "studyflow-db",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // ── Environment variables (non-secret) ──
+  "vars": {
+    "NODE_ENV": "production",
+    "APP_NAME": "StudyFlow"
+  },
+
+  /*
+   // ── Optional: KV for session cache / rate limiting across isolates ──
+   "kv_namespaces": [
+     { "binding": "RATE_LIMIT_KV", "id": "REPLACE_WITH_KV_ID" }
+   ]
+  */
+
+  "observability": { "enabled": true }
+}
