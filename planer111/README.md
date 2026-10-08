@@ -33,6 +33,12 @@
 
 ## 🧪 حساب دمو
 
+> **نسخهٔ فعلی بدون صفحهٔ ورود است:** به‌محض باز کردن برنامه، یک نشست به‌صورت
+> خودکار و بی‌صدا برای حساب مشترک دمو ساخته می‌شود (`POST /api/auth/guest`) و
+> مستقیم وارد داشبورد می‌شوید. اگر کاربر دمو وجود نداشته باشد (دیپلوی تازه)،
+> دادهٔ نمونه هم خودکار بارگذاری می‌شود. صفحهٔ ورود/ثبت‌نام در پروژه حفظ شده و
+> به‌عنوان جایگزین در صورت خطای سرور نمایش داده می‌شود.
+
 ```
 ایمیل:  demo@studyflow.ir
 رمز:    demo12345
@@ -253,6 +259,7 @@ Full-stack app: subjects & topics, spaced-repetition reviews (1/3/7/14/30 days),
 - **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · shadcn/ui · TanStack Query · Zustand · Prisma (SQLite dev / D1 prod) · Vazirmatn font
 - **SPA hash-routing** (`#/dashboard`, `#/tasks`, …) → deploys anywhere, perfect for PWA offline
 - **Auth:** register / login / logout / change password / delete account, sessions stored as SHA-256 hashes, sliding 30-day expiry, per-user data isolation enforced on every query
+- **Login-free build (current):** opening the app silently creates a session for the shared account via `POST /api/auth/guest` (auto-seeds sample data on fresh deployments); the login/register screens remain in the codebase as fallback
 - **Demo account:** `demo@studyflow.ir` / `demo12345` (via `npm run seed`)
 - **Local dev:** `npm install` → `cp .env.example .env` → `npx prisma db push` → `npm run seed` → `npm run dev`
 - **Deploy (Cloudflare):** `npx wrangler d1 create studyflow-db` → set `database_id` in `wrangler.jsonc` → `npx wrangler d1 migrations apply studyflow-db --remote` → `npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy` (the D1 Prisma adapter is wired automatically in `src/lib/db.ts`)
